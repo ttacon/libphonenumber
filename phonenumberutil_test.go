@@ -169,18 +169,9 @@ func Test_normalize(t *testing.T) {
 			in:  "800yoloFOO",
 			exp: "8009656366",
 		}, {
-			//			in:  "٠٠٠٠٠٠٠٠٠",
-			//			exp: "111111111",
-			//		}, {
 			in:  "444111a2222",
 			exp: "4441112222",
-		}, //{
-		//			in:  "६६६६६६६६६",
-		//			exp: "666666666",
-		//		}, {
-		//			in:  "",
-		//			exp: "",
-		//		},
+		},
 	}
 
 	// TODO(ttacon): the above commented out test are because we hacked the crap

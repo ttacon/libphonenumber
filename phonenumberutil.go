@@ -750,10 +750,10 @@ func isViablePhoneNumber(number string) bool {
 //       E.161. This is only done if there are 3 or more letters in the
 //       number, to lessen the risk that such letters are typos.
 //
-// For other numbers:
-//   - Wide-ascii digits are converted to normal ASCII (European) digits.
-//   - Arabic-Indic numerals are converted to European numerals.
-//   - Spurious alpha characters are stripped.
+//   - For other numbers:
+//     - Wide-ascii digits are converted to normal ASCII (European) digits.
+//     - Arabic-Indic numerals are converted to European numerals.
+//     - Spurious alpha characters are stripped.
 func normalize(number string) string {
 	if VALID_ALPHA_PHONE_PATTERN.MatchString(number) {
 		return normalizeHelper(number, ALPHA_PHONE_MAPPINGS, true)
@@ -775,25 +775,25 @@ func normalizeBytes(number *bytes.Buffer) *bytes.Buffer {
 // converts wide-ascii and arabic-indic numerals to European numerals,
 // and strips punctuation and alpha characters.
 func normalizeDigitsOnly(number string) string {
-	return string(normalizeDigits(number, false /* strip non-digits */))
+	return normalizeDigits(number, false /* strip non-digits */)
 }
 
 // TODO(ttacon): add test for this versus java version...
 // not sure it's implemented correctly
 // URGENT(ttacon)
-func normalizeDigits(number string, keepNonDigits bool) []byte {
-	buf := []byte(number)
-	var normalizedDigits []byte
+func normalizeDigits(number string, keepNonDigits bool) string {
+	buf := number
+	var normalizedDigits = bytes.NewBuffer(nil)
 	for _, c := range buf {
 		// TODO(ttacon): make this not a dirty hack
-		digit := c - 48
-		if digit < 10 {
-			normalizedDigits = append(normalizedDigits, c)
+		// support arabic-indic digit replacement w/ european numbers
+		if unicode.IsDigit(c) {
+			normalizedDigits.WriteRune(c)
 		} else if keepNonDigits {
-			normalizedDigits = append(normalizedDigits, c)
+			normalizedDigits.WriteRune(c)
 		}
 	}
-	return normalizedDigits
+	return normalizedDigits.String()
 }
 
 // Normalizes a string of characters representing a phone number. This
