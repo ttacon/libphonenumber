@@ -184,3 +184,58 @@ func Test_normalize(t *testing.T) {
 		}
 	}
 }
+
+func Test_isValidNumber(t *testing.T) {
+	var tests = []struct {
+		input   string
+		err     error
+		isValid bool
+		region  string
+	}{
+		{
+			input:   "4437990238",
+			err:     nil,
+			isValid: true,
+			region:  "US",
+		}, {
+			input:   "(443) 799-0238",
+			err:     nil,
+			isValid: true,
+			region:  "US",
+		}, {
+			input:   "((443) 799-023asdfghjk8",
+			err:     ErrNumTooLong,
+			isValid: false,
+			region:  "US",
+		}, {
+			input:   "+441932567890",
+			err:     nil,
+			isValid: true,
+			region:  "GB",
+		}, {
+			input:   "45",
+			err:     nil,
+			isValid: false,
+			region:  "US",
+		}, {
+			input:   "1800AWWCUTE",
+			err:     nil,
+			isValid: true,
+			region:  "US",
+		},
+	}
+
+	for i, test := range tests {
+		num, err := parse(test.input, test.region)
+		if err != test.err {
+			t.Errorf("[test %d:err] failed: %v != %v\n", i, err, test.err)
+		}
+		if test.err != nil {
+			continue
+		}
+		if isValidNumber(num) != test.isValid {
+			t.Errorf("[test %d:validity] failed: %v != %v\n",
+				i, isValidNumber(num), test.isValid)
+		}
+	}
+}

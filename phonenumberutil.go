@@ -1760,17 +1760,24 @@ func getNationalSignificantNumber(number *PhoneNumber) string {
 		nationalNumber.Write(zeros)
 	}
 	natNum := number.GetNationalNumber()
-	nationalNumber.Write([]byte{
-		byte(natNum >> 56),
-		byte(natNum >> 48),
-		byte(natNum >> 40),
-		byte(natNum >> 32),
-		byte(natNum >> 24),
-		byte(natNum >> 16),
-		byte(natNum >> 8),
-		byte(natNum & 0xff),
-	})
-	return nationalNumber.String()
+	for natNum > 0 {
+		nationalNumber.WriteRune(rune(natNum%10) + '0')
+		natNum /= 10
+	}
+
+	// from: https://groups.google.com/forum/#!topic/golang-nuts/oPuBaYJ17t4
+	input := nationalNumber.String()
+	n := 0
+	rune := make([]rune, len(input))
+	for _, r := range input {
+		rune[n] = r
+		n++
+	}
+	rune = rune[0:n]
+	for i := 0; i < n/2; i++ {
+		rune[i], rune[n-1-i] = rune[n-1-i], rune[i]
+	}
+	return string(rune)
 }
 
 // A helper function that is used by format and formatByPattern.
