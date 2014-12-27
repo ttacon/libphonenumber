@@ -745,10 +745,10 @@ func isViablePhoneNumber(number string) bool {
 // performs the following conversions:
 //   - Punctuation is stripped.
 //   - For ALPHA/VANITY numbers:
-//   - Letters are converted to their numeric representation on a telephone
-//     keypad. The keypad used here is the one defined in ITU Recommendation
-//     E.161. This is only done if there are 3 or more letters in the
-//     number, to lessen the risk that such letters are typos.
+//     - Letters are converted to their numeric representation on a telephone
+//       keypad. The keypad used here is the one defined in ITU Recommendation
+//       E.161. This is only done if there are 3 or more letters in the
+//       number, to lessen the risk that such letters are typos.
 //
 // For other numbers:
 //   - Wide-ascii digits are converted to normal ASCII (European) digits.

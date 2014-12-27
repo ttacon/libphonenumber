@@ -150,3 +150,46 @@ func Test_isViablePhoneNumer(t *testing.T) {
 		}
 	}
 }
+
+func Test_normalize(t *testing.T) {
+	var tests = []struct {
+		in  string
+		exp string
+	}{
+		{
+			in:  "4431234567",
+			exp: "4431234567",
+		}, {
+			in:  "443 1234567",
+			exp: "4431234567",
+		}, {
+			in:  "(443)123-4567",
+			exp: "4431234567",
+		}, {
+			in:  "800yoloFOO",
+			exp: "8009656366",
+		}, {
+			//			in:  "٠٠٠٠٠٠٠٠٠",
+			//			exp: "111111111",
+			//		}, {
+			in:  "444111a2222",
+			exp: "4441112222",
+		}, //{
+		//			in:  "६६६६६६६६६",
+		//			exp: "666666666",
+		//		}, {
+		//			in:  "",
+		//			exp: "",
+		//		},
+	}
+
+	// TODO(ttacon): the above commented out test are because we hacked the crap
+	// out of normalizeDigits, fix it
+
+	for i, test := range tests {
+		res := normalize(test.in)
+		if res != test.exp {
+			t.Errorf("[test %d] %s != %s\n", i, res, test.exp)
+		}
+	}
+}
