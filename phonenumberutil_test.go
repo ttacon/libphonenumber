@@ -239,3 +239,77 @@ func Test_isValidNumber(t *testing.T) {
 		}
 	}
 }
+
+func Test_isValidNumberForRegion(t *testing.T) {
+	var tests = []struct {
+		input            string
+		err              error
+		isValid          bool
+		validationRegion string
+		region           string
+	}{
+		{
+			input:            "4437990238",
+			err:              nil,
+			isValid:          true,
+			validationRegion: "US",
+			region:           "US",
+		}, {
+			input:            "(443) 799-0238",
+			err:              nil,
+			isValid:          true,
+			region:           "US",
+			validationRegion: "US",
+		}, {
+			input:            "((443) 799-023asdfghjk8",
+			err:              ErrNumTooLong,
+			isValid:          false,
+			region:           "US",
+			validationRegion: "US",
+		}, {
+			input:            "+441932567890",
+			err:              nil,
+			isValid:          true,
+			region:           "GB",
+			validationRegion: "GB",
+		}, {
+			input:            "45",
+			err:              nil,
+			isValid:          false,
+			region:           "US",
+			validationRegion: "US",
+		}, {
+			input:            "1800AWWCUTE",
+			err:              nil,
+			isValid:          true,
+			region:           "US",
+			validationRegion: "US",
+		}, {
+			input:            "+441932567890",
+			err:              nil,
+			isValid:          false,
+			region:           "GB",
+			validationRegion: "US",
+		}, {
+			input:            "1800AWWCUTE",
+			err:              nil,
+			isValid:          false,
+			region:           "US",
+			validationRegion: "GB",
+		},
+	}
+
+	for i, test := range tests {
+		num, err := parse(test.input, test.region)
+		if err != test.err {
+			t.Errorf("[test %d:err] failed: %v != %v\n", i, err, test.err)
+		}
+		if test.err != nil {
+			continue
+		}
+		if isValidNumberForRegion(num, test.validationRegion) != test.isValid {
+			t.Errorf("[test %d:validity] failed: %v != %v\n",
+				i, isValidNumberForRegion(num, test.validationRegion), test.isValid)
+		}
+	}
+}
