@@ -2,7 +2,7 @@ package libphonenumber
 
 import "testing"
 
-func Test_parse(t *testing.T) {
+func TestParse(t *testing.T) {
 	var tests = []struct {
 		input       string
 		err         error
@@ -43,7 +43,7 @@ func Test_parse(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		num, err := parse(test.input, test.region)
+		num, err := Parse(test.input, test.region)
 		if err != test.err {
 			t.Errorf("[test %d:err] failed: %v != %v\n", i, err, test.err)
 		}
@@ -53,7 +53,7 @@ func Test_parse(t *testing.T) {
 	}
 }
 
-func Test_convertAlphaCharactersInNumber(t *testing.T) {
+func TestConvertAlphaCharactersInNumber(t *testing.T) {
 	var tests = []struct {
 		input, output string
 	}{
@@ -67,7 +67,7 @@ func Test_convertAlphaCharactersInNumber(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		out := convertAlphaCharactersInNumber(test.input)
+		out := ConvertAlphaCharactersInNumber(test.input)
 		if out != test.output {
 			t.Errorf("[test %d] failed, %s != %s\n", i, out, test.output)
 		}
@@ -226,7 +226,7 @@ func Test_isValidNumber(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		num, err := parse(test.input, test.region)
+		num, err := Parse(test.input, test.region)
 		if err != test.err {
 			t.Errorf("[test %d:err] failed: %v != %v\n", i, err, test.err)
 		}
@@ -300,7 +300,7 @@ func Test_isValidNumberForRegion(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		num, err := parse(test.input, test.region)
+		num, err := Parse(test.input, test.region)
 		if err != test.err {
 			t.Errorf("[test %d:err] failed: %v != %v\n", i, err, test.err)
 		}
