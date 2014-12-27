@@ -107,3 +107,46 @@ func Test_normalizeDigits(t *testing.T) {
 		}
 	}
 }
+
+func Test_extractPossibleNumber(t *testing.T) {
+	var (
+		input    = "(530) 583-6985 x302/x2303"
+		expected = "530) 583-6985 x302" // yes, the leading '(' is missing
+	)
+
+	output := extractPossibleNumber(input)
+	if output != expected {
+		t.Error(output, "!=", expected)
+	}
+}
+
+func Test_isViablePhoneNumer(t *testing.T) {
+	var tests = []struct {
+		input    string
+		isViable bool
+	}{
+		{
+			input:    "4445556666",
+			isViable: true,
+		}, {
+			input:    "+441932123456",
+			isViable: true,
+		}, {
+			input:    "4930123456",
+			isViable: true,
+		}, {
+			input:    "2",
+			isViable: false,
+		}, {
+			input:    "helloworld",
+			isViable: false,
+		},
+	}
+
+	for i, test := range tests {
+		result := isViablePhoneNumber(test.input)
+		if result != test.isViable {
+			t.Errorf("[test %d] %v != %v\n", i, result, test.isViable)
+		}
+	}
+}
