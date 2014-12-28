@@ -7,6 +7,8 @@ golang port of Google's libphonenumber
 
 [![Build Status](https://travis-ci.org/ttacon/libphonenumber.svg?branch=master)](https://travis-ci.org/ttacon/libphonenumber)
 
+[![Coverage Status](https://img.shields.io/coveralls/ttacon/libphonenumber.svg)](https://coveralls.io/r/ttacon/libphonenumber)
+
 WARNING
 =======
 
