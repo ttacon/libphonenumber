@@ -296,6 +296,12 @@ func Test_isValidNumberForRegion(t *testing.T) {
 			isValid:          false,
 			region:           "US",
 			validationRegion: "GB",
+		}, {
+			input:            "01932 869755",
+			region:           "GB",
+			err:              nil,
+			isValid:          true,
+			validationRegion: "GB",
 		},
 	}
 
@@ -310,6 +316,58 @@ func Test_isValidNumberForRegion(t *testing.T) {
 		if isValidNumberForRegion(num, test.validationRegion) != test.isValid {
 			t.Errorf("[test %d:validity] failed: %v != %v\n",
 				i, isValidNumberForRegion(num, test.validationRegion), test.isValid)
+		}
+	}
+}
+
+func TestFormat(t *testing.T) {
+	var tests = []struct {
+		in     string
+		exp    string
+		region string
+		frmt   PhoneNumberFormat
+	}{
+		{
+			in:     "01932 869755",
+			region: "GB",
+			exp:    "019 3286 9755",
+			frmt:   NATIONAL,
+		}, {
+			in:     "+44 (0) 1932 869755",
+			region: "GB",
+			exp:    "+44 19 3286 9755",
+			frmt:   INTERNATIONAL,
+		}, {
+			in:     "4431234567",
+			region: "US",
+			exp:    "4431234567",
+			frmt:   NATIONAL,
+		}, {
+			in:     "4431234567",
+			region: "US",
+			exp:    "+14431234567",
+			frmt:   E164,
+		}, {
+			in:     "4431234567",
+			region: "US",
+			exp:    "+1 4431234567",
+			frmt:   INTERNATIONAL,
+		}, {
+			in:     "4431234567",
+			region: "US",
+			exp:    "tel:+1-4431234567",
+			frmt:   RFC3966,
+		},
+	}
+
+	for i, test := range tests {
+		num, err := Parse(test.in, test.region)
+		if err != nil {
+			t.Errorf("[test %d] failed: should be able to parse, err:%v\n", i, err)
+		}
+		got := Format(num, test.frmt)
+		if got != test.exp {
+			t.Errorf("[test %d:fmt] failed %s != %s\n", i, got, test.exp)
 		}
 	}
 }

@@ -1083,7 +1083,9 @@ func Format(number *PhoneNumber, numberFormat PhoneNumberFormat) string {
 // Same as Format(PhoneNumber, PhoneNumberFormat), but accepts a mutable
 // StringBuilder as a parameter to decrease object creation when invoked
 // many times.
-func FormatWithBuf(number *PhoneNumber, numberFormat PhoneNumberFormat,
+func FormatWithBuf(
+	number *PhoneNumber,
+	numberFormat PhoneNumberFormat,
 	formattedNumber *bytes.Buffer) {
 	// Clear the StringBuilder first.
 	formattedNumber.Reset()
@@ -1805,6 +1807,7 @@ func prefixNumberWithCountryCallingCode(
 		newBuf.WriteString("-")
 		newBuf.Write(formattedNumber.Bytes())
 	case NATIONAL:
+		newBuf.Write(formattedNumber.Bytes())
 	default:
 	}
 	formattedNumber.Reset()
@@ -1888,7 +1891,6 @@ func formatNsnUsingPatternWithCarrier(
 	carrierCode string) string {
 
 	numberFormatRule := formattingPattern.GetFormat()
-	// TODO(ttacon): see what we should be doing if the pattern doesn't exist?
 	m, ok := regexCache[formattingPattern.GetPattern()]
 	if !ok {
 		pat := formattingPattern.GetPattern()
@@ -1902,12 +1904,28 @@ func formatNsnUsingPatternWithCarrier(
 		len(formattingPattern.GetDomesticCarrierCodeFormattingRule()) > 0 {
 		// Replace the $CC in the formatting rule with the desired carrier code.
 		carrierCodeFormattingRule := formattingPattern.GetDomesticCarrierCodeFormattingRule()
+		i := 1
 		carrierCodeFormattingRule =
-			CC_PATTERN.ReplaceAllString(carrierCodeFormattingRule, carrierCode)
+			CC_PATTERN.ReplaceAllStringFunc(carrierCodeFormattingRule,
+				func(s string) string {
+					if i > 0 {
+						i -= 1
+						return carrierCode
+					}
+					return s
+				})
 		// Now replace the $FG in the formatting rule with the first group
 		// and the carrier code combined in the appropriate way.
-		numberFormatRule = FIRST_GROUP_PATTERN.ReplaceAllString(
-			numberFormatRule, carrierCodeFormattingRule)
+		i = 1
+		numberFormatRule = FIRST_GROUP_PATTERN.ReplaceAllStringFunc(
+			numberFormatRule,
+			func(s string) string {
+				if i > 0 {
+					i -= 1
+					return carrierCodeFormattingRule
+				}
+				return s
+			})
 		// TODO(ttacon): should these params be reversed?
 		formattedNationalNumber = m.ReplaceAllString(numberFormatRule, nationalNumber)
 	} else {
@@ -1916,15 +1934,21 @@ func formatNsnUsingPatternWithCarrier(
 			formattingPattern.GetNationalPrefixFormattingRule()
 		if numberFormat == NATIONAL &&
 			len(nationalPrefixFormattingRule) > 0 {
-
-			formattedNationalNumber =
-				m.ReplaceAllString(
-					FIRST_GROUP_PATTERN.ReplaceAllString(
-						numberFormatRule, nationalPrefixFormattingRule),
-					nationalNumber)
+			i := 1
+			fgp := FIRST_GROUP_PATTERN.ReplaceAllStringFunc(numberFormatRule,
+				func(s string) string {
+					if i > 0 {
+						i -= 1
+						return nationalPrefixFormattingRule
+					}
+					return s
+				})
+			formattedNationalNumber = m.ReplaceAllString(nationalNumber, fgp)
 		} else {
 			formattedNationalNumber = m.ReplaceAllString(
-				numberFormatRule, nationalNumber)
+				nationalNumber,
+				numberFormatRule,
+			)
 		}
 	}
 	if numberFormat == RFC3966 {
