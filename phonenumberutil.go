@@ -11,8 +11,6 @@ import (
 	"unicode"
 
 	"code.google.com/p/goprotobuf/proto"
-
-	"github.com/yext/glog"
 )
 
 const (
@@ -631,11 +629,9 @@ func NewPhoneNumberUtil(filePrefix string,
 	// regions it must be because there are entries that list the non-geo
 	// entity alongside normal regions (which is wrong). If we discover
 	// this, remove the non-geo entity from the set of supported regions
-	// and log.
-	if _, ok := supportedRegions[REGION_CODE_FOR_NON_GEO_ENTITY]; ok {
-		glog.Warning("invalid metadata (country calling code was " +
-			"mapped to the non-geo entity as well as specific region(s))")
-	}
+	// and log (or not log).
+	delete(supportedRegions, REGION_CODE_FOR_NON_GEO_ENTITY)
+
 	for _, regions := range countryCallingCodeToRegionCodeMap {
 		for _, val := range regions {
 			nanpaRegions[val] = struct{}{}
@@ -663,7 +659,6 @@ func loadMetadataFromFile(filePrefix, regionCode string,
 
 	metadataList := metadataCollection.GetMetadata()
 	if len(metadataList) == 0 {
-		glog.Error("empty metadata: " + fileName)
 		return errors.New("empty metadata: " + fileName)
 	}
 
@@ -715,7 +710,6 @@ func extractPossibleNumber(number string) string {
 		indices := UNWANTED_END_CHAR_PATTERN.FindIndex([]byte(number))
 		if len(indices) > 0 {
 			number = number[0:indices[0]]
-			glog.Info("Stripped trailing characters: " + number)
 		}
 		// Check for extra numbers at the end.
 		indices = SECOND_NUMBER_START_PATTERN.FindIndex([]byte(number))
@@ -1385,10 +1379,6 @@ func formatOutOfCountryCallingNumber(
 	regionCallingFrom string) string {
 
 	if !isValidRegionCode(regionCallingFrom) {
-		glog.Warning(
-			"Trying to format number from invalid region " +
-				regionCallingFrom +
-				". International formatting applied.")
 		return Format(number, INTERNATIONAL)
 	}
 	countryCallingCode := int(number.GetCountryCode())
@@ -1735,10 +1725,6 @@ func formatOutOfCountryKeepingAlphaChars(
 		// Invalid region entered as country-calling-from (so no metadata
 		// was found for it) or the region chosen has multiple international
 		// dialling prefixes.
-		glog.Warning(
-			"Trying to format number from invalid region " +
-				regionCallingFrom +
-				". International formatting applied.")
 		prefixNumberWithCountryCallingCode(countryCode,
 			INTERNATIONAL,
 			formattedNumber)
@@ -1974,7 +1960,6 @@ func getExampleNumber(regionCode string) *PhoneNumber {
 func getExampleNumberForType(regionCode string, typ PhoneNumberType) *PhoneNumber {
 	// Check the region code is valid.
 	if !isValidRegionCode(regionCode) {
-		glog.Warning("Invalid or unknown region code provided: " + regionCode)
 		return nil
 	}
 	//PhoneNumberDesc (pointer?)
@@ -2245,10 +2230,6 @@ func getRegionCodeForNumber(number *PhoneNumber) string {
 	var countryCode int = int(number.GetCountryCode())
 	var regions []string = CountryCodeToRegion[countryCode]
 	if len(regions) == 0 {
-		var numberString string = getNationalSignificantNumber(number)
-		glog.Warning(
-			"Missing/invalid country_code (" +
-				strconv.Itoa(countryCode) + ") for number " + numberString)
 		return ""
 	}
 	if len(regions) == 1 {
@@ -2317,8 +2298,6 @@ func GetCountryCodeForRegion(regionCode string) int {
 		if len(regionCode) == 0 {
 			regionCode = "null"
 		}
-		glog.Warning(
-			"Invalid or missing region code (" + regionCode + ") provided.")
 		return 0
 	}
 	return GetCountryCodeForValidRegion(regionCode)
@@ -2348,8 +2327,6 @@ func getNddPrefixForRegion(regionCode string, stripNonDigits bool) string {
 		if len(regionCode) == 0 {
 			regionCode = "null"
 		}
-		glog.Warning(
-			"Invalid or missing region code (" + regionCode + ") provided.")
 		return ""
 	}
 	var nationalPrefix string = metadata.GetNationalPrefix()
@@ -2480,7 +2457,6 @@ func isPossibleNumberWithReason(number *PhoneNumber) ValidationResult {
 	var generalNumDesc *PhoneNumberDesc = metadata.GetGeneralDesc()
 	// Handling case of numbers with no metadata.
 	if len(generalNumDesc.GetNationalNumberPattern()) == 0 {
-		glog.Info("Checking if number is possible with incomplete metadata.")
 		numberLength := len(nationalNumber)
 		if numberLength < MIN_LENGTH_FOR_NSN {
 			return TOO_SHORT
@@ -3336,7 +3312,6 @@ func canBeInternationallyDialled(number *PhoneNumber) bool {
 func isMobileNumberPortableRegion(regionCode string) bool {
 	metadata := getMetadataForRegion(regionCode)
 	if metadata == nil {
-		glog.Warning("Invalid or unknown region code provided: " + regionCode)
 		return false
 	}
 	return metadata.GetMobileNumberPortableRegion()
