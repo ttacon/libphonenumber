@@ -23,3 +23,21 @@ stable state - currently it is VERY fragile.
 
 I should get it cleaned up soon (think a few days) in which case
 I would love for help finishing this off :).
+
+Examples
+========
+
+Super simple to use.
+
+### To get a phone number
+
+```go
+num, err := libphonenumber.Parse("6502530000", "US")
+```
+
+### To format a number
+
+```go
+// num is a *libphonenumber.PhoneNumber
+formattedNum := libphonenumber.Format(num, libphonenumber.NATIONAL)
+```
