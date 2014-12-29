@@ -689,6 +689,40 @@ func NormalizeDigitsOnly(number string) string {
 	return normalizeDigits(number, false /* strip non-digits */)
 }
 
+// ugly hack still, but fills out the functionality (sort of)
+var arabicIndicNumberals = map[rune]rune{
+	'٠':      '0',
+	'۰':      '0',
+	'١':      '1',
+	'۱':      '1',
+	'٢':      '2',
+	'۲':      '2',
+	'٣':      '3',
+	'۳':      '3',
+	'٤':      '4',
+	'۴':      '4',
+	'٥':      '5',
+	'۵':      '5',
+	'٦':      '6',
+	'۶':      '6',
+	'٧':      '7',
+	'۷':      '7',
+	'٨':      '8',
+	'۸':      '8',
+	'٩':      '9',
+	'۹':      '9',
+	'\uFF10': '0',
+	'\uFF11': '1',
+	'\uFF12': '2',
+	'\uFF13': '3',
+	'\uFF14': '4',
+	'\uFF15': '5',
+	'\uFF16': '6',
+	'\uFF17': '7',
+	'\uFF18': '8',
+	'\uFF19': '9',
+}
+
 // TODO(ttacon): add test for this versus java version...
 // not sure it's implemented correctly
 // URGENT(ttacon)
@@ -696,10 +730,12 @@ func normalizeDigits(number string, keepNonDigits bool) string {
 	buf := number
 	var normalizedDigits = builder.NewBuilder(nil)
 	for _, c := range buf {
-		// TODO(ttacon): make this not a dirty hack
-		// support arabic-indic digit replacement w/ european numbers
 		if unicode.IsDigit(c) {
-			normalizedDigits.WriteRune(c)
+			if v, ok := arabicIndicNumberals[c]; ok {
+				normalizedDigits.WriteRune(v)
+			} else {
+				normalizedDigits.WriteRune(c)
+			}
 		} else if keepNonDigits {
 			normalizedDigits.WriteRune(c)
 		}
@@ -1653,8 +1689,9 @@ func prefixNumberWithCountryCallingCode(
 		newBuf.WriteString("-")
 		newBuf.Write(formattedNumber.Bytes())
 	case NATIONAL:
-		newBuf.Write(formattedNumber.Bytes())
+		fallthrough
 	default:
+		newBuf.Write(formattedNumber.Bytes())
 	}
 	formattedNumber.ResetWith(newBuf.Bytes())
 }
