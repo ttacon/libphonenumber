@@ -8,17 +8,12 @@ func NewPhoneNumberMatcher(seq string) *PhoneNumberMatcher {
 	return nil
 }
 
-func ContainsOnlyValidXChars(
-	number *PhoneNumber,
-	candidate string,
-	util *PhoneNumberUtil) bool {
+func ContainsOnlyValidXChars(number *PhoneNumber, candidate string) bool {
 	// TODO(ttacon): to be implemented
 	return false
 }
 
-func IsNationalPrefixPresentIfRequired(
-	number *PhoneNumber,
-	util *PhoneNumberUtil) bool {
+func IsNationalPrefixPresentIfRequired(number *PhoneNumber) bool {
 	// TODO(ttacon): to be implemented
 	return false
 }
@@ -33,14 +28,12 @@ func ContainsMoreThanOneSlashInNationalNumber(
 func CheckNumberGroupingIsValid(
 	number *PhoneNumber,
 	candidate string,
-	util *PhoneNumberUtil,
-	fn func(*PhoneNumberUtil, *PhoneNumber, string, []string) bool) bool {
+	fn func(*PhoneNumber, string, []string) bool) bool {
 	// TODO(ttacon): to be implemented
 	return false
 }
 
 func AllNumberGroupsRemainGrouped(
-	util *PhoneNumberUtil,
 	number *PhoneNumber,
 	normalizedCandidate string,
 	expectedNumberGroups []string) bool {
@@ -49,7 +42,6 @@ func AllNumberGroupsRemainGrouped(
 }
 
 func AllNumberGroupsAreExactlyPresent(
-	util *PhoneNumberUtil,
 	number *PhoneNumber,
 	normalizedCandidate string,
 	expectedNumberGroups []string) bool {

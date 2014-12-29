@@ -1,14 +1,14 @@
 package libphonenumber
 
 import (
-	"bytes"
 	"errors"
-	"io"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/ttacon/builder"
 
 	"code.google.com/p/goprotobuf/proto"
 )
@@ -25,9 +25,6 @@ const (
 	// This prevents malicious input from overflowing the regular-expression
 	// engine.
 	MAX_INPUT_STRING_LENGTH = 250
-
-	//META_DATA_FILE_PREFIX = "/com/google/i18n/phonenumbers/data/PhoneNumberMetadataProto"
-	META_DATA_FILE_PREFIX = "/Users/ltacon/Documents/gocode/src/github.com/ttacon/libphonenumber/data/PhoneNumberMetadataProto"
 
 	// Region-code for the unknown region.
 	UNKNOWN_REGION = "ZZ"
@@ -68,8 +65,6 @@ const (
 )
 
 var (
-	defaultMetadataLoader MetadataLoader
-
 	// Map of country calling codes that use a mobile token before the
 	// area code. One example of when this is relevant is when determining
 	// the length of the national destination code, which should be the
@@ -398,11 +393,6 @@ var (
 	REGION_CODE_FOR_NON_GEO_ENTITY = "001"
 )
 
-// singleton pattern?
-// private static PhoneNumberUtil instance = null;
-// TODO(ttacon): make this go routine safe
-var instance *PhoneNumberUtil
-
 // INTERNATIONAL and NATIONAL formats are consistent with the definition
 // in ITU-T Recommendation E123. For example, the number of the Google
 // Switzerland office will be written as "+41 44 668 1800" in
@@ -498,47 +488,44 @@ const (
 	EXACT_GROUPING
 )
 
-func (l Leniency) Verify(
-	number *PhoneNumber,
-	candidate string,
-	util *PhoneNumberUtil) bool {
+func (l Leniency) Verify(number *PhoneNumber, candidate string) bool {
 
 	switch l {
 	case POSSIBLE:
 		return isPossibleNumber(number)
 	case VALID:
 		if !isValidNumber(number) ||
-			!ContainsOnlyValidXChars(number, candidate, util) {
+			!ContainsOnlyValidXChars(number, candidate) {
 			return false
 		}
-		return IsNationalPrefixPresentIfRequired(number, util)
+		return IsNationalPrefixPresentIfRequired(number)
 	case STRICT_GROUPING:
 		if !isValidNumber(number) ||
-			!ContainsOnlyValidXChars(number, candidate, util) ||
+			!ContainsOnlyValidXChars(number, candidate) ||
 			ContainsMoreThanOneSlashInNationalNumber(number, candidate) ||
-			!IsNationalPrefixPresentIfRequired(number, util) {
+			!IsNationalPrefixPresentIfRequired(number) {
 			return false
 		}
-		return CheckNumberGroupingIsValid(number, candidate, util,
-			func(util *PhoneNumberUtil, number *PhoneNumber,
+		return CheckNumberGroupingIsValid(number, candidate,
+			func(number *PhoneNumber,
 				normalizedCandidate string,
 				expectedNumberGroups []string) bool {
 				return AllNumberGroupsRemainGrouped(
-					util, number, normalizedCandidate, expectedNumberGroups)
+					number, normalizedCandidate, expectedNumberGroups)
 			})
 	case EXACT_GROUPING:
 		if !isValidNumber(number) ||
-			!ContainsOnlyValidXChars(number, candidate, util) ||
+			!ContainsOnlyValidXChars(number, candidate) ||
 			ContainsMoreThanOneSlashInNationalNumber(number, candidate) ||
-			!IsNationalPrefixPresentIfRequired(number, util) {
+			!IsNationalPrefixPresentIfRequired(number) {
 			return false
 		}
-		return CheckNumberGroupingIsValid(number, candidate, util,
-			func(util *PhoneNumberUtil, number *PhoneNumber,
+		return CheckNumberGroupingIsValid(number, candidate,
+			func(number *PhoneNumber,
 				normalizedCandidate string,
 				expectedNumberGroups []string) bool {
 				return AllNumberGroupsAreExactlyPresent(
-					util, number, normalizedCandidate, expectedNumberGroups)
+					number, normalizedCandidate, expectedNumberGroups)
 			})
 	}
 	return false
@@ -547,9 +534,6 @@ func (l Leniency) Verify(
 var (
 	// The set of regions that share country calling code 1.
 	// There are roughly 26 regions.
-	// We set the initial capacity of the HashSet to 35 to offer a load
-	// factor of roughly 0.75.
-	// TODO(ttacon): specify size?
 	nanpaRegions = make(map[string]struct{})
 
 	// A mapping from a region code to the PhoneMetadata for that region.
@@ -581,85 +565,22 @@ var (
 	countryCodesForNonGeographicalRegion = make(map[int]struct{})
 )
 
-type PhoneNumberUtil struct {
-	// The prefix of the metadata files from which region data is loaded.
-	currentFilePrefix string
+var ErrEmptyMetadata = errors.New("empty metadata")
 
-	// The metadata loader used to inject alternative metadata sources.
-	metadataLoader MetadataLoader
+func loadMetadataFromFile(
+	regionCode string,
+	countryCallingCode int) error {
 
-	// A mapping from a country calling code to the region codes which
-	// denote the region represented by that country calling code. In
-	// the case of multiple regions sharing a calling code, such as the
-	// NANPA regions, the one indicated with "isMainCountryForCode" in
-	// the metadata should be first.
-	countryCallingCodeToRegionCodeMap map[int][]string
-}
-
-// This class implements a singleton, the constructor is only visible to
-// facilitate testing.
-// @VisibleForTesting
-func NewPhoneNumberUtil(filePrefix string,
-	metadataLoader MetadataLoader,
-	countryCallingCodeToRegionCodeMap map[int][]string) *PhoneNumberUtil {
-
-	this := &PhoneNumberUtil{
-		currentFilePrefix:                 filePrefix,
-		metadataLoader:                    metadataLoader,
-		countryCallingCodeToRegionCodeMap: countryCallingCodeToRegionCodeMap,
-	}
-
-	for eKey, regionCodes := range countryCallingCodeToRegionCodeMap {
-		// We can assume that if the county calling code maps to the
-		// non-geo entity region code then that's the only region code
-		// it maps to.
-		if len(regionCodes) == 1 && REGION_CODE_FOR_NON_GEO_ENTITY == regionCodes[0] {
-			// This is the subset of all country codes that map to the
-			// non-geo entity region code.
-			countryCodesForNonGeographicalRegion[eKey] = struct{}{}
-		} else {
-			// The supported regions set does not include the "001"
-			// non-geo entity region code.
-			for _, val := range regionCodes {
-				supportedRegions[val] = struct{}{}
-			}
-		}
-	}
-	// If the non-geo entity still got added to the set of supported
-	// regions it must be because there are entries that list the non-geo
-	// entity alongside normal regions (which is wrong). If we discover
-	// this, remove the non-geo entity from the set of supported regions
-	// and log (or not log).
-	delete(supportedRegions, REGION_CODE_FOR_NON_GEO_ENTITY)
-
-	for _, regions := range countryCallingCodeToRegionCodeMap {
-		for _, val := range regions {
-			nanpaRegions[val] = struct{}{}
-		}
-	}
-	return this
-}
-
-// @VisibleForTesting
-func loadMetadataFromFile(filePrefix, regionCode string,
-	countryCallingCode int,
-	metadataLoader MetadataLoader) error {
-
-	isNonGeoRegion := REGION_CODE_FOR_NON_GEO_ENTITY == regionCode
-
-	fileName := filePrefix + "_" + regionCode
-	if isNonGeoRegion {
-		fileName = filePrefix + "_" + strconv.Itoa(countryCallingCode)
-	}
-
-	metadataCollection, err := loadMetadataAndCloseInput(nil)
+	metadataCollection, err := metadataCollection()
 	if err != nil {
-		return nil
+		return err
+	} else if currMetadataColl == nil {
+		currMetadataColl = metadataCollection
 	}
 
 	metadataList := metadataCollection.GetMetadata()
 	if len(metadataList) == 0 {
-		return errors.New("empty metadata: " + fileName)
+		return ErrEmptyMetadata
 	}
 
 	for _, meta := range metadataList {
@@ -668,26 +589,22 @@ func loadMetadataFromFile(filePrefix, regionCode string,
 	}
 
 	// TODO(ttacon): nongeos?
-	//	fmt.Println("isNonGeoRegion: ", isNonGeoRegion)
-	//	if isNonGeoRegion {
-	//		countryCodeToNonGeographicalMetadataMap[countryCallingCode] = metadata
-	//	} else {
-	//		regionToMetadataMap[regionCode] = metadata
-	//	}
 	return nil
 }
 
-// Loads the metadata protocol buffer from the given stream and closes
-// the stream afterwards. Any exceptions that occur while reading the
-// stream are propagated (though exceptions that occur when the stream
-// is closed will be ignored).
-func loadMetadataAndCloseInput(source io.ReadCloser) (*PhoneMetadataCollection, error) {
-	metadataCollection := &PhoneMetadataCollection{}
-	//data, err := ioutil.ReadAll(source)
-	//if err != nil {
-	//	return nil, err
-	//}
+var (
+	currMetadataColl *PhoneMetadataCollection
+	reloadMetadata   = true
+)
+
+func metadataCollection() (*PhoneMetadataCollection, error) {
+	if !reloadMetadata {
+		return currMetadataColl, nil
+	}
+
+	var metadataCollection = &PhoneMetadataCollection{}
 	err := proto.Unmarshal(metaData, metadataCollection)
+	reloadMetadata = false
 	return metadataCollection, err
 }
 
@@ -758,11 +675,11 @@ func normalize(number string) string {
 // Normalizes a string of characters representing a phone number. This is
 // a wrapper for normalize(String number) but does in-place normalization
 // of the StringBuilder provided.
-func normalizeBytes(number *bytes.Buffer) *bytes.Buffer {
+func normalizeBytes(number *builder.Builder) *builder.Builder {
 	normalizedNumber := normalize(number.String())
 	b := number.Bytes()
 	copy(b[0:len(normalizedNumber)], []byte(normalizedNumber))
-	return bytes.NewBuffer(b)
+	return builder.NewBuilder(b)
 }
 
 // Normalizes a string of characters representing a phone number. This
@@ -777,7 +694,7 @@ func NormalizeDigitsOnly(number string) string {
 // URGENT(ttacon)
 func normalizeDigits(number string, keepNonDigits bool) string {
 	buf := number
-	var normalizedDigits = bytes.NewBuffer(nil)
+	var normalizedDigits = builder.NewBuilder(nil)
 	for _, c := range buf {
 		// TODO(ttacon): make this not a dirty hack
 		// support arabic-indic digit replacement w/ european numbers
@@ -810,16 +727,15 @@ func ConvertAlphaCharactersInNumber(number string) string {
 // works in such a way that the resultant subscriber number should be
 // diallable, at least on some devices. An example of how this could be used:
 //
-//   PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
-//   PhoneNumber number = phoneUtil.parse("16502530000", "US");
-//   String nationalSignificantNumber = phoneUtil.getNationalSignificantNumber(number);
-//   String areaCode;
-//   String subscriberNumber;
+//   number, err := Parse("16502530000", "US");
+//   // ... deal with err appropriately ...
+//   nationalSignificantNumber := GetNationalSignificantNumber(number);
+//   var areaCode, subscriberNumber;
 //
-//   int areaCodeLength = phoneUtil.getLengthOfGeographicalAreaCode(number);
+//   int areaCodeLength = GetLengthOfGeographicalAreaCode(number);
 //   if (areaCodeLength > 0) {
-//     areaCode = nationalSignificantNumber.substring(0, areaCodeLength);
-//     subscriberNumber = nationalSignificantNumber.substring(areaCodeLength);
+//     areaCode = nationalSignificantNumber[0:areaCodeLength];
+//     subscriberNumber = nationalSignificantNumber[areaCodeLength:];
 //   } else {
 //     areaCode = "";
 //     subscriberNumber = nationalSignificantNumber;
@@ -838,7 +754,7 @@ func ConvertAlphaCharactersInNumber(number string) string {
 //  - most non-geographical numbers have no area codes, including numbers from
 //    non-geographical entities
 //  - some geographical numbers have no area codes.
-func getLengthOfGeographicalAreaCode(number *PhoneNumber) int {
+func GetLengthOfGeographicalAreaCode(number *PhoneNumber) int {
 	metadata := getMetadataForRegion(getRegionCodeForNumber(number))
 	if metadata == nil {
 		return 0
@@ -868,7 +784,7 @@ func getLengthOfGeographicalAreaCode(number *PhoneNumber) int {
 //
 //   PhoneNumberUtil phoneUtil = PhoneNumberUtil.getInstance();
 //   PhoneNumber number = phoneUtil.parse("18002530000", "US");
-//   String nationalSignificantNumber = phoneUtil.getNationalSignificantNumber(number);
+//   String nationalSignificantNumber = phoneUtil.GetNationalSignificantNumber(number);
 //   String nationalDestinationCode;
 //   String subscriberNumber;
 //
@@ -885,7 +801,7 @@ func getLengthOfGeographicalAreaCode(number *PhoneNumber) int {
 //   }
 //
 // Refer to the unittests to see the difference between this function and
-// getLengthOfGeographicalAreaCode().
+// GetLengthOfGeographicalAreaCode().
 func getLengthOfNationalDestinationCode(number *PhoneNumber) int {
 	var copiedProto *PhoneNumber
 	if len(number.GetExtension()) > 0 {
@@ -943,7 +859,7 @@ func normalizeHelper(number string,
 	removeNonMatches bool) string {
 
 	// TODO(ttacon): would using bytes.Buffer be faster? write a benchmark...
-	var normalizedNumber = bytes.NewBuffer(nil)
+	var normalizedNumber = builder.NewBuilder(nil)
 	for _, character := range number {
 		newDigit, ok := normalizationReplacements[unicode.ToUpper(character)]
 		if ok {
@@ -954,14 +870,6 @@ func normalizeHelper(number string,
 		// If neither of the above are true, we remove this character.
 	}
 	return normalizedNumber.String()
-}
-
-// Sets or resets the PhoneNumberUtil singleton instance. If set to null,
-// the next call to getInstance() will load (and return) the default instance.
-// @VisibleForTesting
-// TODO(ttacon): make a go routine safe singleton instance
-func setInstance(util *PhoneNumberUtil) {
-	instance = util
 }
 
 // Convenience method to get a list of what regions the library has metadata for.
@@ -975,39 +883,6 @@ func getSupportedRegions() map[string]struct{} {
 // TODO(ttacon): make an unmodifiable wrapper (read-only)
 func getSupportedGlobalNetworkCallingCodes() map[int]struct{} {
 	return countryCodesForNonGeographicalRegion
-}
-
-// Gets a PhoneNumberUtil instance to carry out international phone number
-// formatting, parsing, or validation. The instance is loaded with phone
-// number metadata for a number of most commonly used regions.
-//
-// The PhoneNumberUtil is implemented as a singleton. Therefore, calling
-// getInstance() multiple times will only result in one instance being created.
-// TODO(ttacon): make this go routine safe
-func getInstance() *PhoneNumberUtil {
-	if instance == nil {
-		setInstance(createInstance(DEFAULT_METADATA_LOADER))
-	}
-	return instance
-}
-
-// Create a new {@link PhoneNumberUtil} instance to carry out international
-// phone number formatting, parsing, or validation. The instance is loaded
-// with all metadata by using the metadataLoader specified.
-//
-// This method should only be used in the rare case in which you want to
-// manage your own metadata loading. Calling this method multiple times is
-// very expensive, as each time a new instance is created from scratch.
-// When in doubt, use getInstance().
-func createInstance(metadataLoader MetadataLoader) *PhoneNumberUtil {
-	if metadataLoader == nil {
-		panic("metadataLoader could not be null.")
-	}
-	return NewPhoneNumberUtil(
-		META_DATA_FILE_PREFIX,
-		metadataLoader,
-		CountryCodeToRegion,
-	)
 }
 
 // Helper function to check if the national prefix formatting rule has the
@@ -1069,7 +944,7 @@ func Format(number *PhoneNumber, numberFormat PhoneNumberFormat) string {
 			return rawInput
 		}
 	}
-	var formattedNumber = bytes.NewBuffer(nil)
+	var formattedNumber = builder.NewBuilder(nil)
 	FormatWithBuf(number, numberFormat, formattedNumber)
 	return formattedNumber.String()
 }
@@ -1080,11 +955,11 @@ func Format(number *PhoneNumber, numberFormat PhoneNumberFormat) string {
 func FormatWithBuf(
 	number *PhoneNumber,
 	numberFormat PhoneNumberFormat,
-	formattedNumber *bytes.Buffer) {
+	formattedNumber *builder.Builder) {
 	// Clear the StringBuilder first.
 	formattedNumber.Reset()
 	countryCallingCode := int(number.GetCountryCode())
-	nationalSignificantNumber := getNationalSignificantNumber(number)
+	nationalSignificantNumber := GetNationalSignificantNumber(number)
 
 	if numberFormat == E164 {
 		// Early exit for E164 case (even if the country calling code
@@ -1131,7 +1006,7 @@ func FormatByPattern(number *PhoneNumber,
 	userDefinedFormats []*NumberFormat) string {
 
 	countryCallingCode := int(number.GetCountryCode())
-	nationalSignificantNumber := getNationalSignificantNumber(number)
+	nationalSignificantNumber := GetNationalSignificantNumber(number)
 	if !hasValidCountryCallingCode(countryCallingCode) {
 		return nationalSignificantNumber
 	}
@@ -1143,7 +1018,7 @@ func FormatByPattern(number *PhoneNumber,
 	// Metadata cannot be null because the country calling code is valid
 	metadata := getMetadataForRegionOrCallingCode(countryCallingCode, regionCode)
 
-	formattedNumber := bytes.NewBuffer(nil)
+	formattedNumber := builder.NewBuilder(nil)
 
 	formattingPattern := chooseFormattingPatternForNumber(
 		userDefinedFormats, nationalSignificantNumber)
@@ -1193,7 +1068,7 @@ func FormatByPattern(number *PhoneNumber,
 // the number in national format without any carrier code.
 func FormatNationalNumberWithCarrierCode(number *PhoneNumber, carrierCode string) string {
 	countryCallingCode := int(number.GetCountryCode())
-	nationalSignificantNumber := getNationalSignificantNumber(number)
+	nationalSignificantNumber := GetNationalSignificantNumber(number)
 	if !hasValidCountryCallingCode(countryCallingCode) {
 		return nationalSignificantNumber
 	}
@@ -1205,7 +1080,7 @@ func FormatNationalNumberWithCarrierCode(number *PhoneNumber, carrierCode string
 	// Metadata cannot be null because the country calling code is valid.
 	metadata := getMetadataForRegionOrCallingCode(countryCallingCode, regionCode)
 
-	formattedNumber := bytes.NewBuffer(nil)
+	formattedNumber := builder.NewBuilder(nil)
 	formattedNumber.WriteString(
 		formatNsnWithCarrier(
 			nationalSignificantNumber,
@@ -1311,7 +1186,7 @@ func FormatNumberForMobileDialing(
 			regionMetadata := getMetadataForRegion(regionCallingFrom)
 			if canBeInternationallyDialled(numberNoExt) &&
 				!isShorterThanPossibleNormalNumber(regionMetadata,
-					getNationalSignificantNumber(numberNoExt)) {
+					GetNationalSignificantNumber(numberNoExt)) {
 				formattedNumber = Format(numberNoExt, INTERNATIONAL)
 			} else {
 				formattedNumber = Format(numberNoExt, NATIONAL)
@@ -1382,12 +1257,12 @@ func formatOutOfCountryCallingNumber(
 		return Format(number, INTERNATIONAL)
 	}
 	countryCallingCode := int(number.GetCountryCode())
-	nationalSignificantNumber := getNationalSignificantNumber(number)
+	nationalSignificantNumber := GetNationalSignificantNumber(number)
 	if !hasValidCountryCallingCode(countryCallingCode) {
 		return nationalSignificantNumber
 	}
 	if countryCallingCode == NANPA_COUNTRY_CODE {
-		if isNANPACountry(regionCallingFrom) {
+		if IsNANPACountry(regionCallingFrom) {
 			// For NANPA regions, return the national format for these
 			// regions but prefix it with the country calling code.
 			return strconv.Itoa(countryCallingCode) + " " + Format(number, NATIONAL)
@@ -1426,7 +1301,7 @@ func formatOutOfCountryCallingNumber(
 	formattedNationalNumber :=
 		formatNsn(
 			nationalSignificantNumber, metadataForRegion, INTERNATIONAL)
-	formattedNumber := bytes.NewBuffer([]byte(formattedNationalNumber))
+	formattedNumber := builder.NewBuilder([]byte(formattedNationalNumber))
 	maybeAppendFormattedExtension(number, metadataForRegion, INTERNATIONAL,
 		formattedNumber)
 	if len(internationalPrefixForFormatting) > 0 {
@@ -1507,7 +1382,7 @@ func formatInOriginalFormat(number *PhoneNumber, regionCallingFrom string) strin
 		// Metadata cannot be null here because getNddPrefixForRegion()
 		// (above) returns null if there is no metadata for the region.
 		metadata := getMetadataForRegion(regionCode)
-		nationalNumber := getNationalSignificantNumber(number)
+		nationalNumber := GetNationalSignificantNumber(number)
 		formatRule :=
 			chooseFormattingPatternForNumber(metadata.GetNumberFormat(), nationalNumber)
 		// The format rule could still be null here if the national
@@ -1598,7 +1473,7 @@ func hasFormattingPatternForNumber(number *PhoneNumber) bool {
 	if metadata == nil {
 		return false
 	}
-	nationalNumber := getNationalSignificantNumber(number)
+	nationalNumber := GetNationalSignificantNumber(number)
 	formatRule := chooseFormattingPatternForNumber(
 		metadata.GetNumberFormat(), nationalNumber)
 	return formatRule != nil
@@ -1649,7 +1524,7 @@ func formatOutOfCountryKeepingAlphaChars(
 	// have 3 digits at the start - if it does not, then we don't trim
 	// anything at all. Similarly, if the national number was less than
 	// three digits, we don't trim anything at all.
-	nationalNumber := getNationalSignificantNumber(number)
+	nationalNumber := GetNationalSignificantNumber(number)
 	if len(nationalNumber) > 3 {
 		firstNationalNumberDigit := strings.Index(rawInput, nationalNumber[0:3])
 		if firstNationalNumberDigit > -1 {
@@ -1658,7 +1533,7 @@ func formatOutOfCountryKeepingAlphaChars(
 	}
 	metadataForRegionCallingFrom := getMetadataForRegion(regionCallingFrom)
 	if countryCode == NANPA_COUNTRY_CODE {
-		if isNANPACountry(regionCallingFrom) {
+		if IsNANPACountry(regionCallingFrom) {
 			return strconv.Itoa(countryCode) + " " + rawInput
 		}
 	} else if metadataForRegionCallingFrom != nil &&
@@ -1700,7 +1575,7 @@ func formatOutOfCountryKeepingAlphaChars(
 				metadataForRegionCallingFrom.GetPreferredInternationalPrefix()
 		}
 	}
-	var formattedNumber = bytes.NewBuffer([]byte(rawInput))
+	var formattedNumber = builder.NewBuilder([]byte(rawInput))
 	regionCode := getRegionCodeForCountryCode(countryCode)
 	// Metadata cannot be null because the country calling code is valid.
 	var metadataForRegion *PhoneMetadata = getMetadataForRegionOrCallingCode(countryCode, regionCode)
@@ -1720,7 +1595,7 @@ func formatOutOfCountryKeepingAlphaChars(
 		formattedBytes = append(
 			[]byte(internationalPrefixForFormatting), formattedBytes...)
 
-		formattedNumber = bytes.NewBuffer(formattedBytes)
+		formattedNumber = builder.NewBuilder(formattedBytes)
 	} else {
 		// Invalid region entered as country-calling-from (so no metadata
 		// was found for it) or the region chosen has multiple international
@@ -1735,10 +1610,10 @@ func formatOutOfCountryKeepingAlphaChars(
 // Gets the national significant number of the a phone number. Note a
 // national significant number doesn't contain a national prefix or
 // any formatting.
-func getNationalSignificantNumber(number *PhoneNumber) string {
+func GetNationalSignificantNumber(number *PhoneNumber) string {
 	// If leading zero(s) have been set, we prefix this now. Note this
 	// is not a national prefix.
-	nationalNumber := bytes.NewBuffer(nil)
+	nationalNumber := builder.NewBuilder(nil)
 	if number.GetItalianLeadingZero() {
 		zeros := make([]byte, number.GetNumberOfLeadingZeros())
 		for i := range zeros {
@@ -1746,36 +1621,21 @@ func getNationalSignificantNumber(number *PhoneNumber) string {
 		}
 		nationalNumber.Write(zeros)
 	}
-	natNum := number.GetNationalNumber()
-	for natNum > 0 {
-		nationalNumber.WriteRune(rune(natNum%10) + '0')
-		natNum /= 10
-	}
+	asStr := strconv.FormatUint(number.GetNationalNumber(), 10)
+	nationalNumber.WriteString(asStr)
 
-	// from: https://groups.google.com/forum/#!topic/golang-nuts/oPuBaYJ17t4
-	input := nationalNumber.String()
-	n := 0
-	rune := make([]rune, len(input))
-	for _, r := range input {
-		rune[n] = r
-		n++
-	}
-	rune = rune[0:n]
-	for i := 0; i < n/2; i++ {
-		rune[i], rune[n-1-i] = rune[n-1-i], rune[i]
-	}
-	return string(rune)
+	return nationalNumber.String()
 }
 
 // A helper function that is used by format and formatByPattern.
 func prefixNumberWithCountryCallingCode(
 	countryCallingCode int,
 	numberFormat PhoneNumberFormat,
-	formattedNumber *bytes.Buffer) {
+	formattedNumber *builder.Builder) {
 
 	// TODO(ttacon): a lot of this will be super inefficient, build a package
 	// that has a WriteAt()
-	newBuf := bytes.NewBuffer(nil)
+	newBuf := builder.NewBuilder(nil)
 	switch numberFormat {
 	case E164:
 		newBuf.WriteString(string(PLUS_SIGN))
@@ -1796,8 +1656,7 @@ func prefixNumberWithCountryCallingCode(
 		newBuf.Write(formattedNumber.Bytes())
 	default:
 	}
-	formattedNumber.Reset()
-	formattedNumber.Write(newBuf.Bytes())
+	formattedNumber.ResetWith(newBuf.Bytes())
 }
 
 // Simple wrapper of formatNsn for the common case of no carrier code.
@@ -1841,9 +1700,23 @@ func chooseFormattingPatternForNumber(
 	for _, numFormat := range availableFormats {
 		leadingDigitsPattern := numFormat.GetLeadingDigitsPattern()
 		size := len(leadingDigitsPattern)
-		if size == 0 {
-			continue
+
+		m, ok := regexCache[numFormat.GetPattern()]
+		if !ok {
+			pat := numFormat.GetPattern()
+			m = regexp.MustCompile(pat)
+			regexCache[pat] = m
 		}
+
+		if size == 0 {
+			mat := m.FindString(nationalNumber)
+			if m.MatchString(nationalNumber) && len(mat) == len(nationalNumber) {
+				return numFormat
+			} else {
+				continue
+			}
+		}
+
 		// We always use the last leading_digits_pattern, as it is the
 		// most detailed.
 		reg, ok := regexCache[leadingDigitsPattern[size-1]]
@@ -1852,7 +1725,9 @@ func chooseFormattingPatternForNumber(
 			reg = regexp.MustCompile(pat)
 			regexCache[pat] = reg
 		}
-		if reg.MatchString(nationalNumber) {
+
+		inds := reg.FindStringIndex(nationalNumber)
+		if len(inds) > 0 && m.MatchString(nationalNumber) {
 			return numFormat
 		}
 	}
@@ -2000,7 +1875,7 @@ func maybeAppendFormattedExtension(
 	number *PhoneNumber,
 	metadata *PhoneMetadata,
 	numberFormat PhoneNumberFormat,
-	formattedNumber *bytes.Buffer) {
+	formattedNumber *builder.Builder) {
 
 	extension := number.GetExtension()
 	if len(extension) == 0 {
@@ -2058,7 +1933,7 @@ func getNumberType(number *PhoneNumber) PhoneNumberType {
 	if metadata == nil {
 		return UNKNOWN
 	}
-	var nationalSignificantNumber = getNationalSignificantNumber(number)
+	var nationalSignificantNumber = GetNationalSignificantNumber(number)
 	return getNumberTypeHelper(nationalSignificantNumber, metadata)
 }
 
@@ -2124,34 +1999,16 @@ func getMetadataForRegion(regionCode string) *PhoneMetadata {
 	if !isValidRegionCode(regionCode) {
 		return nil
 	}
-	// TODO(ttacon): make this go rotine safe?
-	// synchronized (regionToMetadataMap) {
-	val, ok := regionToMetadataMap[regionCode]
-	if !ok {
-		// The regionCode here will be valid and won't be '001', so
-		// we don't need to worry about what to pass in for the country
-		// calling code.
-		//loadMetadataFromFile(
-		//	instance.currentFilePrefix, regionCode, 0, instance.metadataLoader)
-	}
+	val := regionToMetadataMap[regionCode]
 	return val
 }
 
 func getMetadataForNonGeographicalRegion(countryCallingCode int) *PhoneMetadata {
-	// TODO(ttacon): make this go rotine safe?
-	// synchronized (countryCodeToNonGeographicalMetadataMap) {
 	_, ok := CountryCodeToRegion[countryCallingCode]
 	if !ok {
 		return nil
 	}
-	val, ok := countryCodeToNonGeographicalMetadataMap[countryCallingCode]
-	if !ok {
-		loadMetadataFromFile(
-			instance.currentFilePrefix,
-			REGION_CODE_FOR_NON_GEO_ENTITY,
-			countryCallingCode,
-			instance.metadataLoader)
-	}
+	val := countryCodeToNonGeographicalMetadataMap[countryCallingCode]
 	return val
 }
 
@@ -2211,7 +2068,7 @@ func isValidNumberForRegion(number *PhoneNumber, regionCode string) bool {
 		return false
 	}
 	var generalNumDesc *PhoneNumberDesc = metadata.GetGeneralDesc()
-	var nationalSignificantNumber string = getNationalSignificantNumber(number)
+	var nationalSignificantNumber string = GetNationalSignificantNumber(number)
 	// For regions where we don't have metadata for PhoneNumberDesc, we
 	// treat any number passed in as a valid number if its national
 	// significant number is between the minimum and maximum lengths
@@ -2242,7 +2099,7 @@ func getRegionCodeForNumberFromRegionList(
 	number *PhoneNumber,
 	regionCodes []string) string {
 
-	var nationalNumber string = getNationalSignificantNumber(number)
+	var nationalNumber string = GetNationalSignificantNumber(number)
 	for _, regionCode := range regionCodes {
 		// If leadingDigits is present, use this. Otherwise, do
 		// full validation. Metadata cannot be null because the
@@ -2295,9 +2152,6 @@ func getRegionCodesForCountryCode(countryCallingCode int) []string {
 // would be 1 for the United States, and 64 for New Zealand.
 func GetCountryCodeForRegion(regionCode string) int {
 	if !isValidRegionCode(regionCode) {
-		if len(regionCode) == 0 {
-			regionCode = "null"
-		}
 		return 0
 	}
 	return GetCountryCodeForValidRegion(regionCode)
@@ -2324,13 +2178,10 @@ func GetCountryCodeForValidRegion(regionCode string) int {
 func getNddPrefixForRegion(regionCode string, stripNonDigits bool) string {
 	var metadata *PhoneMetadata = getMetadataForRegion(regionCode)
 	if metadata == nil {
-		if len(regionCode) == 0 {
-			regionCode = "null"
-		}
 		return ""
 	}
 	var nationalPrefix string = metadata.GetNationalPrefix()
-	// If no national prefix was found, we return null.
+	// If no national prefix was found, we return an empty string.
 	if len(nationalPrefix) == 0 {
 		return ""
 	}
@@ -2344,7 +2195,7 @@ func getNddPrefixForRegion(regionCode string, stripNonDigits bool) string {
 
 // Checks if this is a region under the North American Numbering Plan
 // Administration (NANPA).
-func isNANPACountry(regionCode string) bool {
+func IsNANPACountry(regionCode string) bool {
 	_, ok := nanpaRegions[regionCode]
 	return ok
 }
@@ -2372,7 +2223,7 @@ func isAlphaNumber(number string) bool {
 		// number pattern.
 		return false
 	}
-	strippedNumber := bytes.NewBufferString(number)
+	strippedNumber := builder.NewBuilderString(number)
 	maybeStripExtension(strippedNumber)
 	return VALID_ALPHA_PHONE_PATTERN.MatchString(strippedNumber.String())
 }
@@ -2439,7 +2290,7 @@ func isShorterThanPossibleNormalNumber(
 //    line numbers), it will return false for the subscriber-number-only
 //    version.
 func isPossibleNumberWithReason(number *PhoneNumber) ValidationResult {
-	nationalNumber := getNationalSignificantNumber(number)
+	nationalNumber := GetNationalSignificantNumber(number)
 	countryCode := int(number.GetCountryCode())
 	// Note: For Russian Fed and NANPA numbers, we just use the rules
 	// from the default region (US or Russia) since the
@@ -2494,7 +2345,7 @@ func isPossibleNumberWithRegion(number, regionDialingFrom string) bool {
 // to be valid, and resets the PhoneNumber object passed in to that valid
 // version. If no valid number could be extracted, the PhoneNumber object
 // passed in will not be modified.
-func truncateTooLongNumber(number *PhoneNumber) bool {
+func TruncateTooLongNumber(number *PhoneNumber) bool {
 	if isValidNumber(number) {
 		return true
 	}
@@ -2530,24 +2381,30 @@ func truncateTooLongNumber(number *PhoneNumber) bool {
 // sign or IDD has already been removed. Returns 0 if fullNumber doesn't
 // start with a valid country calling code, and leaves nationalNumber
 // unmodified.
-func extractCountryCode(fullNumber, nationalNumber *bytes.Buffer) int {
-	// TODO(ttacon): clean all this up when replace *bytes.Buffer usage
+func extractCountryCode(fullNumber, nationalNumber *builder.Builder) int {
+	// TODO(ttacon): clean all this up when replace *builder.Builder usage
 	// with insertablebuffer.Buf
-	if len(fullNumber.Bytes()) == 0 || (fullNumber.Bytes()[0] == '0') {
+	fullNumBytes := fullNumber.Bytes()
+	if len(fullNumBytes) == 0 || fullNumBytes[0] == '0' {
 		// Country codes do not begin with a '0'.
 		return 0
 	}
-	var potentialCountryCode int
-	var numberLength = len(fullNumber.String())
+	var (
+		potentialCountryCode int
+		numberLength         = len(fullNumBytes)
+	)
 	for i := 1; i <= MAX_LENGTH_COUNTRY_CODE && i <= numberLength; i++ {
-		potentialCountryCode, _ = strconv.Atoi(fullNumber.String()[0:i])
+		potentialCountryCode, _ = strconv.Atoi(string(fullNumBytes[0:i]))
 		if _, ok := CountryCodeToRegion[potentialCountryCode]; ok {
-			nationalNumber.WriteString(fullNumber.String()[i:])
+			nationalNumber.Write(fullNumBytes[i:])
 			return potentialCountryCode
 		}
 	}
 	return 0
 }
+
+var ErrTooShortAfterIDD = errors.New("Phone number had an IDD, but " +
+	"after this was not long enough to be a viable phone number.")
 
 // Tries to extract a country calling code from a number. This method will
 // return zero if no country calling code is considered to be present.
@@ -2568,18 +2425,17 @@ func extractCountryCode(fullNumber, nationalNumber *bytes.Buffer) int {
 // It will throw a NumberParseException if the number starts with a '+' but
 // the country calling code supplied after this does not match that of any
 // known region.
-// @VisibleForTesting
 func maybeExtractCountryCode(
 	number string,
 	defaultRegionMetadata *PhoneMetadata,
-	nationalNumber *bytes.Buffer,
+	nationalNumber *builder.Builder,
 	keepRawInput bool,
-	phoneNumber *PhoneNumber) int {
+	phoneNumber *PhoneNumber) (int, error) {
 
 	if len(number) == 0 {
-		return 0
+		return 0, nil
 	}
-	fullNumber := bytes.NewBufferString(number)
+	fullNumber := builder.NewBuilderString(number)
 	// Set the default prefix to be something that will never match.
 	possibleCountryIddPrefix := "NonMatch"
 	if defaultRegionMetadata != nil {
@@ -2593,20 +2449,17 @@ func maybeExtractCountryCode(
 	}
 	if countryCodeSource != PhoneNumber_FROM_DEFAULT_COUNTRY {
 		if len(fullNumber.String()) <= MIN_LENGTH_FOR_NSN {
-			// TODO(ttacon): remove this when replacing with idiomatic go
-			panic(
-				"Phone number had an IDD, but after this was not " +
-					"long enough to be a viable phone number.")
+			return 0, ErrTooShortAfterIDD
 		}
 		potentialCountryCode := extractCountryCode(fullNumber, nationalNumber)
 		if potentialCountryCode != 0 {
 			phoneNumber.CountryCode = proto.Int(potentialCountryCode)
-			return potentialCountryCode
+			return potentialCountryCode, nil
 		}
 
 		// If this fails, they must be using a strange country calling code
 		// that we don't recognize, or that doesn't exist.
-		panic("Country calling code supplied was not recognised.")
+		return 0, ErrInvalidCountryCode
 	} else if defaultRegionMetadata != nil {
 		// Check to see if the number starts with the country calling code
 		// for the default region. If so, we remove the country calling
@@ -2616,10 +2469,12 @@ func maybeExtractCountryCode(
 		defaultCountryCodeString := strconv.Itoa(defaultCountryCode)
 		normalizedNumber := fullNumber.String()
 		if strings.HasPrefix(normalizedNumber, defaultCountryCodeString) {
-			potentialNationalNumber := bytes.NewBufferString(
-				normalizedNumber[len(defaultCountryCodeString):])
-			var generalDesc *PhoneNumberDesc = defaultRegionMetadata.GetGeneralDesc()
-			validNumberPattern, ok := regexCache[generalDesc.GetNationalNumberPattern()]
+			var (
+				potentialNationalNumber = builder.NewBuilderString(
+					normalizedNumber[len(defaultCountryCodeString):])
+				generalDesc            = defaultRegionMetadata.GetGeneralDesc()
+				validNumberPattern, ok = regexCache[generalDesc.GetNationalNumberPattern()]
+			)
 			if !ok {
 				pat := generalDesc.GetNationalNumberPattern()
 				validNumberPattern = regexp.MustCompile(pat)
@@ -2628,7 +2483,7 @@ func maybeExtractCountryCode(
 			maybeStripNationalPrefixAndCarrierCode(
 				potentialNationalNumber,
 				defaultRegionMetadata,
-				bytes.NewBuffer(nil) /* Don't need the carrier code */)
+				builder.NewBuilder(nil) /* Don't need the carrier code */)
 			possibleNumberPattern, ok := regexCache[generalDesc.GetPossibleNumberPattern()]
 			if !ok {
 				pat := generalDesc.GetPossibleNumberPattern()
@@ -2649,65 +2504,57 @@ func maybeExtractCountryCode(
 					phoneNumber.CountryCodeSource = &val
 				}
 				phoneNumber.CountryCode = proto.Int(defaultCountryCode)
-				return defaultCountryCode
+				return defaultCountryCode, nil
 			}
 		}
 	}
 	// No country calling code present.
 	phoneNumber.CountryCode = proto.Int(0)
-	return 0
+	return 0, nil
 }
 
 // Strips the IDD from the start of the number if present. Helper function
 // used by maybeStripInternationalPrefixAndNormalize.
-func parsePrefixAsIdd(iddPattern *regexp.Regexp, number *bytes.Buffer) bool {
-	//if (m.lookingAt()) {
-	ind := iddPattern.FindIndex(number.Bytes())
+func parsePrefixAsIdd(iddPattern *regexp.Regexp, number *builder.Builder) bool {
+	numStr := number.String()
+	ind := iddPattern.FindStringIndex(numStr)
 	if len(ind) == 0 {
 		return false
 	}
 	matchEnd := ind[1] // ind is a two element slice
 	// Only strip this if the first digit after the match is not
 	// a 0, since country calling codes cannot begin with 0.
-	find := CAPTURING_DIGIT_PATTERN.FindAllString(number.String()[matchEnd:], -1)
+	find := CAPTURING_DIGIT_PATTERN.FindAllString(numStr[matchEnd:], -1)
 	if len(find) > 0 {
-		normalizedGroup := NormalizeDigitsOnly(find[1])
-		if normalizedGroup == "0" {
+		if NormalizeDigitsOnly(find[1]) == "0" {
 			return false
 		}
 	}
 
-	by := make([]byte, len(number.Bytes())-matchEnd)
-	copy(by, number.Bytes()[matchEnd:])
-	number.Reset()
-	number.Write(by)
+	numBytes := []byte(numStr)
+	number.ResetWith(numBytes[matchEnd:])
 	return true
 }
 
 // Strips any international prefix (such as +, 00, 011) present in the
 // number provided, normalizes the resulting number, and indicates if
 // an international prefix was present.
-// @VisibleForTesting
 func maybeStripInternationalPrefixAndNormalize(
-	number *bytes.Buffer,
+	number *builder.Builder,
 	possibleIddPrefix string) PhoneNumber_CountryCodeSource {
 
-	if len(number.String()) == 0 {
+	numBytes := number.Bytes()
+	if len(numBytes) == 0 {
 		return PhoneNumber_FROM_DEFAULT_COUNTRY
 	}
 	// Check to see if the number begins with one or more plus signs.
-	ind := PLUS_CHARS_PATTERN.FindAllIndex(number.Bytes(), -1)
+	ind := PLUS_CHARS_PATTERN.FindAllIndex(numBytes, -1)
 	if len(ind) > 0 {
 		last := ind[len(ind)-1][1]
-		numBytes := make([]byte, len(number.Bytes())-last)
-		copy(numBytes, number.Bytes()[last:])
-		number.Reset()
-		number.Write(numBytes)
+		number.ResetWith(numBytes[last:])
 		// Can now normalize the rest of the number since we've consumed
 		// the "+" sign at the start.
-		val := normalize(number.String())
-		number.Reset()
-		number.WriteString(val)
+		number.ResetWithString(normalize(number.String()))
 		return PhoneNumber_FROM_NUMBER_WITH_PLUS_SIGN
 	}
 
@@ -2718,9 +2565,7 @@ func maybeStripInternationalPrefixAndNormalize(
 		iddPattern = regexp.MustCompile(pat)
 		regexCache[pat] = iddPattern
 	}
-	val := normalize(number.String())
-	number.Reset()
-	number.WriteString(val)
+	number.ResetWithString(normalize(string(numBytes)))
 	if parsePrefixAsIdd(iddPattern, number) {
 		return PhoneNumber_FROM_NUMBER_WITH_IDD
 	}
@@ -2730,9 +2575,9 @@ func maybeStripInternationalPrefixAndNormalize(
 // Strips any national prefix (such as 0, 1) present in the number provided.
 // @VisibleForTesting
 func maybeStripNationalPrefixAndCarrierCode(
-	number *bytes.Buffer,
+	number *builder.Builder,
 	metadata *PhoneMetadata,
-	carrierCode *bytes.Buffer) bool {
+	carrierCode *builder.Builder) bool {
 
 	numberLength := len(number.String())
 	possibleNationalPrefix := metadata.GetNationalPrefixForParsing()
@@ -2778,16 +2623,13 @@ func maybeStripNationalPrefixAndCarrierCode(
 				len(groups[numOfGroups-1]) != 0 {
 				carrierCode.Write(number.Bytes()[groups[0][0]:groups[0][1]])
 			}
-			numBytes := make([]byte, len(number.Bytes())-groups[0][1])
-			copy(numBytes, number.Bytes()[groups[0][1]:])
-			number.Reset()
-			number.Write(numBytes)
+			number.ResetWith(number.Bytes()[groups[0][1]:])
 			return true
 		} else {
 			// Check that the resultant number is still viable. If not,
 			// return. Check this by copying the string buffer and
 			// making the transformation on the copy first.
-			transformedNumber := bytes.NewBuffer(number.Bytes())
+			transformedNumber := builder.NewBuilder(number.Bytes())
 			transformedNumBytes := number.Bytes()
 			copy(transformedNumBytes[0:numberLength],
 				prefixMatcher.ReplaceAllString(number.String(), transformRule))
@@ -2800,8 +2642,7 @@ func maybeStripNationalPrefixAndCarrierCode(
 			if len(carrierCode.Bytes()) != 0 && numOfGroups > 1 {
 				carrierCode.WriteString(prefixMatcher.FindString(number.String()))
 			}
-			number.Reset()
-			number.Write(transformedNumber.Bytes())
+			number.ResetWith(transformedNumber.Bytes())
 			return true
 		}
 	}
@@ -2812,23 +2653,22 @@ func maybeStripNationalPrefixAndCarrierCode(
 // call is connected, usually indicated with extn, ext, x or similar) from
 // the end of the number, and returns it.
 // @VisibleForTesting
-func maybeStripExtension(number *bytes.Buffer) string {
+func maybeStripExtension(number *builder.Builder) string {
 	// If we find a potential extension, and the number preceding this is
 	// a viable number, we assume it is an extension.
-	ind := EXTN_PATTERN.FindIndex(number.Bytes())
-	if len(ind) > 0 && isViablePhoneNumber(number.String()[0:ind[0]]) {
+	numStr := number.String()
+	ind := EXTN_PATTERN.FindStringIndex(numStr)
+	if len(ind) > 0 && isViablePhoneNumber(numStr[0:ind[0]]) {
 		// The numbers are captured into groups in the regular expression.
-		for _, extensionGroup := range EXTN_PATTERN.FindAllIndex(number.Bytes(), -1) {
+		for _, extensionGroup := range EXTN_PATTERN.FindAllStringIndex(numStr, -1) {
 			if len(extensionGroup) == 0 {
 				continue
 			}
 			// We go through the capturing groups until we find one
 			// that captured some digits. If none did, then we will
 			// return the empty string.
-			extension := number.String()[extensionGroup[0]:extensionGroup[1]]
-			numBytes := number.Bytes()
-			number.Reset()
-			number.Write(numBytes[0:ind[0]])
+			extension := numStr[extensionGroup[0]:extensionGroup[1]]
+			number.ResetWithString(numStr[0:ind[0]])
 			return extension
 		}
 	}
@@ -2874,8 +2714,8 @@ func ParseToNumber(numberToParse, defaultRegion string, phoneNumber *PhoneNumber
 func ParseAndKeepRawInput(
 	numberToParse, defaultRegion string) (*PhoneNumber, error) {
 	var phoneNumber *PhoneNumber = &PhoneNumber{}
-	err := ParseAndKeepRawInputToNumber(numberToParse, defaultRegion, phoneNumber)
-	return phoneNumber, err
+	return phoneNumber, ParseAndKeepRawInputToNumber(
+		numberToParse, defaultRegion, phoneNumber)
 }
 
 // Same as ParseAndKeepRawInput(String, String), but accepts a mutable
@@ -2910,24 +2750,28 @@ func ParseAndKeepRawInputToNumber(
 // A helper function to set the values related to leading zeros in a
 // PhoneNumber.
 func setItalianLeadingZerosForPhoneNumber(
-	nationalNumber string, phoneNumber *PhoneNumber) {
-	if len(nationalNumber) > 1 && nationalNumber[0] == '0' {
-		phoneNumber.ItalianLeadingZero = proto.Bool(true)
-		numberOfLeadingZeros := 1
-		// Note that if the national number is all "0"s, the last "0"
-		// is not counted as a leading zero.
+	nationalNum string, phoneNumber *PhoneNumber) {
+	if len(nationalNum) < 2 || nationalNum[0] != '0' {
+		return
+	}
 
-		for numberOfLeadingZeros < len(nationalNumber)-1 &&
-			nationalNumber[numberOfLeadingZeros] == '0' {
-			numberOfLeadingZeros++
-		}
-		if numberOfLeadingZeros != 1 {
-			phoneNumber.NumberOfLeadingZeros = proto.Int(numberOfLeadingZeros)
-		}
+	phoneNumber.ItalianLeadingZero = proto.Bool(true)
+	numLeadZeros := 1
+	// Note that if the national number is all "0"s, the last "0"
+	// is not counted as a leading zero.
+	for numLeadZeros < len(nationalNum)-1 && nationalNum[numLeadZeros] == '0' {
+		numLeadZeros++
+	}
+	if numLeadZeros != 1 {
+		phoneNumber.NumberOfLeadingZeros = proto.Int(numLeadZeros)
 	}
 }
 
-var ErrInvalidCountryCode = errors.New("invalid country code")
+var (
+	ErrInvalidCountryCode = errors.New("invalid country code")
+	ErrNotANumber         = errors.New("The phone number supplied was empty.")
+	ErrTooShortNSN        = errors.New("The string supplied is too short to be a phone number.")
+)
 
 // Parses a string and fills up the phoneNumber. This method is the same
 // as the public Parse() method, with the exception that it allows the
@@ -2939,23 +2783,23 @@ func parseHelper(
 	keepRawInput, checkRegion bool,
 	phoneNumber *PhoneNumber) error {
 	if len(numberToParse) == 0 {
-		return errors.New("The phone number supplied was empty.")
+		return ErrNotANumber
 	} else if len(numberToParse) > MAX_INPUT_STRING_LENGTH {
-		return errors.New("The string supplied was too long to parse.")
+		return ErrNumTooLong
 	}
 
-	nationalNumber := bytes.NewBuffer(nil)
+	nationalNumber := builder.NewBuilder(nil)
 	buildNationalNumberForParsing(numberToParse, nationalNumber)
 
 	if !isViablePhoneNumber(nationalNumber.String()) {
-		return errors.New("The string supplied did not seem to be a phone number.")
+		return ErrNotANumber
 	}
 
 	// Check the region supplied is valid, or that the extracted number
 	// starts with some sort of + sign so the number's region can be determined.
 	if checkRegion &&
 		!checkRegionForParsing(nationalNumber.String(), defaultRegion) {
-		return errors.New("Missing or invalid default region.")
+		return ErrInvalidCountryCode
 	}
 
 	if keepRawInput {
@@ -2971,30 +2815,30 @@ func parseHelper(
 	var regionMetadata *PhoneMetadata = getMetadataForRegion(defaultRegion)
 	// Check to see if the number is given in international format so we
 	// know whether this number is from the default region or not.
-	normalizedNationalNumber := bytes.NewBuffer(nil)
-	var countryCode = 0
+	normalizedNationalNumber := builder.NewBuilder(nil)
 	// TODO: This method should really just take in the string buffer that
 	// has already been created, and just remove the prefix, rather than
 	// taking in a string and then outputting a string buffer.
-	countryCode = maybeExtractCountryCode(nationalNumber.String(), regionMetadata,
+	countryCode, err := maybeExtractCountryCode(
+		nationalNumber.String(), regionMetadata,
 		normalizedNationalNumber, keepRawInput, phoneNumber)
-	// TODO(ttacon): add error to above method so we can deal with plus
-	//    } catch (NumberParseException e) {
-	//		Matcher matcher = PLUS_CHARS_PATTERN.matcher(nationalNumber.toString());
-	//		if (e.getErrorType() == NumberParseException.ErrorType.INVALID_COUNTRY_CODE &&
-	//			matcher.lookingAt()) {
-	///			// Strip the plus-char, and try again.
-	//			countryCode = maybeExtractCountryCode(nationalNumber.substring(matcher.end()),
-	//				regionMetadata, normalizedNationalNumber,
-	//				keepRawInput, phoneNumber);
-	//			if (countryCode == 0) {
-	//				throw new NumberParseException(NumberParseException.ErrorType.INVALID_COUNTRY_CODE,
-	//					"Could not interpret numbers after plus-sign.");
-	//			}
-	//		} else {
-	//			throw new NumberParseException(e.getErrorType(), e.getMessage());
-	//		}
-	//    }
+	if err != nil {
+		// There might be a plus at the beginning
+		inds := PLUS_CHARS_PATTERN.FindStringIndex(nationalNumber.String())
+		if err == ErrInvalidCountryCode && len(inds) > 0 {
+			// Strip the plus-char, and try again.
+			countryCode, err = maybeExtractCountryCode(
+				nationalNumber.String()[inds[1]:], regionMetadata,
+				normalizedNationalNumber, keepRawInput, phoneNumber)
+			if err != nil {
+				return err
+			} else if countryCode == 0 {
+				return ErrInvalidCountryCode
+			}
+		} else {
+			return err
+		}
+	}
 	if countryCode != 0 {
 		phoneNumberRegion := getRegionCodeForCountryCode(countryCode)
 		if phoneNumberRegion != defaultRegion {
@@ -3007,8 +2851,7 @@ func parseHelper(
 		// If no extracted country calling code, use the region supplied
 		// instead. The national number is just the normalized version of
 		// the number we were given to parse.
-		val := normalize(nationalNumber.String())
-		normalizedNationalNumber.WriteString(val)
+		normalizedNationalNumber.WriteString(normalize(nationalNumber.String()))
 		if len(defaultRegion) != 0 {
 			countryCode = int(regionMetadata.GetCountryCode())
 			phoneNumber.CountryCode = proto.Int(countryCode)
@@ -3017,11 +2860,11 @@ func parseHelper(
 		}
 	}
 	if len(normalizedNationalNumber.String()) < MIN_LENGTH_FOR_NSN {
-		return errors.New("The string supplied is too short to be a phone number.")
+		return ErrTooShortNSN
 	}
 	if regionMetadata != nil {
-		carrierCode := bytes.NewBuffer(nil)
-		potentialNationalNumber := bytes.NewBuffer(normalizedNationalNumber.Bytes())
+		carrierCode := builder.NewBuilder(nil)
+		potentialNationalNumber := builder.NewBuilder(normalizedNationalNumber.Bytes())
 		maybeStripNationalPrefixAndCarrierCode(
 			potentialNationalNumber, regionMetadata, carrierCode)
 		// We require that the NSN remaining after stripping the national
@@ -3039,7 +2882,7 @@ func parseHelper(
 	}
 	lengthOfNationalNumber := len(normalizedNationalNumber.String())
 	if lengthOfNationalNumber < MIN_LENGTH_FOR_NSN {
-		return errors.New("The string supplied is too short to be a phone number.")
+		return ErrTooShortNSN
 	}
 	if lengthOfNationalNumber > MAX_LENGTH_FOR_NSN {
 		return ErrNumTooLong
@@ -3058,7 +2901,7 @@ var ErrNumTooLong = errors.New("The string supplied is too long to be a phone nu
 // number out of it and write to nationalNumber.
 func buildNationalNumberForParsing(
 	numberToParse string,
-	nationalNumber *bytes.Buffer) {
+	nationalNumber *builder.Builder) {
 
 	indexOfPhoneContext := strings.Index(numberToParse, RFC3966_PHONE_CONTEXT)
 	if indexOfPhoneContext > 0 {
@@ -3103,8 +2946,7 @@ func buildNationalNumberForParsing(
 	indexOfIsdn := strings.Index(nationalNumber.String(), RFC3966_ISDN_SUBADDRESS)
 	if indexOfIsdn > 0 {
 		natNumBytes := nationalNumber.Bytes()
-		nationalNumber.Reset()
-		nationalNumber.Write(natNumBytes[:indexOfIsdn])
+		nationalNumber.ResetWith(natNumBytes[:indexOfIsdn])
 	}
 	// If both phone context and isdn-subaddress are absent but other
 	// parameters are present, the parameters are left in nationalNumber.
@@ -3292,7 +3134,6 @@ func isNumberMatchWithOneNumber(
 // returns false. Does not check the number is a valid number. Note that,
 // at the moment, this method does not handle short numbers.
 // TODO: Make this method public when we have enough metadata to make it worthwhile.
-// @VisibleForTesting
 func canBeInternationallyDialled(number *PhoneNumber) bool {
 	metadata := getMetadataForRegion(getRegionCodeForNumber(number))
 	if metadata == nil {
@@ -3301,7 +3142,7 @@ func canBeInternationallyDialled(number *PhoneNumber) bool {
 		// and will be caught here.
 		return true
 	}
-	nationalSignificantNumber := getNationalSignificantNumber(number)
+	nationalSignificantNumber := GetNationalSignificantNumber(number)
 	return !isNumberMatchingDesc(
 		nationalSignificantNumber, metadata.GetNoInternationalDialling())
 }
@@ -3318,6 +3159,36 @@ func isMobileNumberPortableRegion(regionCode string) bool {
 }
 
 func init() {
-	getInstance()
-	loadMetadataFromFile("", "US", 1, instance.metadataLoader)
+	err := loadMetadataFromFile("US", 1)
+	if err != nil {
+		// better to die on start up
+		panic(err)
+	}
+
+	for eKey, regionCodes := range CountryCodeToRegion {
+		// We can assume that if the county calling code maps to the
+		// non-geo entity region code then that's the only region code
+		// it maps to.
+		if len(regionCodes) == 1 && REGION_CODE_FOR_NON_GEO_ENTITY == regionCodes[0] {
+			// This is the subset of all country codes that map to the
+			// non-geo entity region code.
+			countryCodesForNonGeographicalRegion[eKey] = struct{}{}
+		} else {
+			// The supported regions set does not include the "001"
+			// non-geo entity region code.
+			for _, val := range regionCodes {
+				supportedRegions[val] = struct{}{}
+			}
+		}
+	}
+	// If the non-geo entity still got added to the set of supported
+	// regions it must be because there are entries that list the non-geo
+	// entity alongside normal regions (which is wrong). If we discover
+	// this, remove the non-geo entity from the set of supported regions
+	// and log (or not log).
+	delete(supportedRegions, REGION_CODE_FOR_NON_GEO_ENTITY)
+
+	for _, val := range CountryCodeToRegion[NANPA_COUNTRY_CODE] {
+		nanpaRegions[val] = struct{}{}
+	}
 }
