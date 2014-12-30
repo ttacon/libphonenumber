@@ -263,6 +263,7 @@ var (
 
 	PLUS_CHARS_PATTERN      = regexp.MustCompile("[" + PLUS_CHARS + "]+")
 	SEPARATOR_PATTERN       = regexp.MustCompile("[" + VALID_PUNCTUATION + "]+")
+	NOT_SEPARATOR_PATTERN   = regexp.MustCompile("[^" + VALID_PUNCTUATION + "]+")
 	CAPTURING_DIGIT_PATTERN = regexp.MustCompile("(" + DIGITS + ")")
 
 	// Regular expression of acceptable characters that may start a
@@ -338,7 +339,6 @@ var (
 	// Regexp of all possible ways to write extensions, for use when
 	// parsing. This will be run as a case-insensitive regexp match.
 	// Wide character versions are also provided after each ASCII version.
-	// TODO(ttacon): okay so maybe some of these should go in an init?
 	// There are three regular expressions here. The first covers RFC 3966
 	// format, where the extension is added using ";ext=". The second more
 	// generic one starts with optional white space and ends with an
@@ -593,8 +593,6 @@ func loadMetadataFromFile(
 			regionToMetadataMap[region] = meta
 		}
 	}
-
-	// TODO(ttacon): nongeos?
 	return nil
 }
 
@@ -626,7 +624,6 @@ func metadataCollection() (*PhoneMetadataCollection, error) {
 // We remove the second extension so that the first number is parsed correctly.
 func extractPossibleNumber(number string) string {
 	if VALID_START_CHAR_PATTERN.MatchString(number) {
-		// TODO(ttacon): is this right?
 		start := VALID_START_CHAR_PATTERN.FindIndex([]byte(number))[0]
 		number = number[start:]
 		// Remove trailing non-alpha non-numerical characters.
@@ -696,6 +693,7 @@ func NormalizeDigitsOnly(number string) string {
 }
 
 // ugly hack still, but fills out the functionality (sort of)
+// TODO(ttacon): more completely/elegantly solve this
 var arabicIndicNumberals = map[rune]rune{
 	'٠':      '0',
 	'۰':      '0',
@@ -729,9 +727,6 @@ var arabicIndicNumberals = map[rune]rune{
 	'\uFF19': '9',
 }
 
-// TODO(ttacon): add test for this versus java version...
-// not sure it's implemented correctly
-// URGENT(ttacon)
 func normalizeDigits(number string, keepNonDigits bool) string {
 	buf := number
 	var normalizedDigits = builder.NewBuilder(nil)
@@ -900,7 +895,6 @@ func normalizeHelper(number string,
 	normalizationReplacements map[rune]rune,
 	removeNonMatches bool) string {
 
-	// TODO(ttacon): would using bytes.Buffer be faster? write a benchmark...
 	var normalizedNumber = builder.NewBuilder(nil)
 	for _, character := range number {
 		newDigit, ok := normalizationReplacements[unicode.ToUpper(character)]
@@ -915,14 +909,12 @@ func normalizeHelper(number string,
 }
 
 // Convenience method to get a list of what regions the library has metadata for.
-// TODO(ttacon): make an unmodifiable wrapper (read-only)
 func getSupportedRegions() map[string]struct{} {
 	return supportedRegions
 }
 
 // Convenience method to get a list of what global network calling codes
 // the library has metadata for.
-// TODO(ttacon): make an unmodifiable wrapper (read-only)
 func getSupportedGlobalNetworkCallingCodes() map[int]struct{} {
 	return countryCodesForNonGeographicalRegion
 }
@@ -1007,16 +999,13 @@ func FormatWithBuf(
 		// Early exit for E164 case (even if the country calling code
 		// is invalid) since no formatting of the national number needs
 		// to be applied. Extensions are not formatted.
-		// TODO(ttacon): run through errcheck or something similar
 		formattedNumber.WriteString(nationalSignificantNumber)
 		prefixNumberWithCountryCallingCode(
 			countryCallingCode,
 			E164,
 			formattedNumber)
 		return
-	}
-	if !hasValidCountryCallingCode(countryCallingCode) {
-		// TODO(ttacon): run through errcheck or something similar
+	} else if !hasValidCountryCallingCode(countryCallingCode) {
 		formattedNumber.WriteString(nationalSignificantNumber)
 		return
 	}
@@ -1675,8 +1664,8 @@ func prefixNumberWithCountryCallingCode(
 	numberFormat PhoneNumberFormat,
 	formattedNumber *builder.Builder) {
 
-	// TODO(ttacon): a lot of this will be super inefficient, build a package
-	// that has a WriteAt()
+	// TODO(ttacon): add some sort of BulkWrite builder to builder.Builder
+	// also that name isn't too awesome...:)
 	newBuf := builder.NewBuilder(nil)
 	switch numberFormat {
 	case E164:
@@ -1830,7 +1819,6 @@ func formatNsnUsingPatternWithCarrier(
 				}
 				return s
 			})
-		// TODO(ttacon): should these params be reversed?
 		formattedNationalNumber = m.ReplaceAllString(numberFormatRule, nationalNumber)
 	} else {
 		// Use the national prefix formatting rule instead.
@@ -1857,14 +1845,12 @@ func formatNsnUsingPatternWithCarrier(
 	}
 	if numberFormat == RFC3966 {
 		// Strip any leading punctuation.
-		if SEPARATOR_PATTERN.MatchString(formattedNationalNumber) {
-			// TODO(ttacon): wrap *Regexp to have a function that
-			// just matches the first occurence of something
-			// (just make a closure that keeps track of when the
-			// first match occurs)
+		inds := SEPARATOR_PATTERN.FindStringIndex(formattedNationalNumber)
+		if len(inds) > 0 && inds[0] == 0 {
+			formattedNationalNumber = formattedNationalNumber[inds[1]:]
 		}
-		// Replace the rest with a dash between each number group.
-		// TODO(ttacon): this is unimplemented for now
+		allStr := NOT_SEPARATOR_PATTERN.FindAllString(formattedNationalNumber, -1)
+		formattedNationalNumber = strings.Join(allStr, "-")
 	}
 	return formattedNationalNumber
 }
@@ -2290,12 +2276,10 @@ func testNumberLengthAgainstPattern(
 		return IS_POSSIBLE
 	}
 
-	// TODO(ttacon): we need some similar functionality to lookingAt()
-	//if (numberMatcher.lookingAt()) {
-	//  return ValidationResult.TOO_LONG;
-	//} else {
-	//  return ValidationResult.TOO_SHORT;
-	//}
+	inds := numberPattern.FindStringIndex(number)
+	if len(inds) > 0 {
+		return TOO_LONG
+	}
 	return TOO_SHORT
 }
 
@@ -2425,8 +2409,6 @@ func TruncateTooLongNumber(number *PhoneNumber) bool {
 // start with a valid country calling code, and leaves nationalNumber
 // unmodified.
 func extractCountryCode(fullNumber, nationalNumber *builder.Builder) int {
-	// TODO(ttacon): clean all this up when replace *builder.Builder usage
-	// with insertablebuffer.Buf
 	fullNumBytes := fullNumber.Bytes()
 	if len(fullNumBytes) == 0 || fullNumBytes[0] == '0' {
 		// Country codes do not begin with a '0'.
@@ -3094,21 +3076,17 @@ func isNationalNumberSuffixOfTheOther(firstNumber, secondNumber *PhoneNumber) bo
 // a convenience wrapper for isNumberMatch(PhoneNumber, PhoneNumber). No
 // default region is known.
 func isNumberMatch(firstNumber, secondNumber string) MatchType {
-	// TODO(ttacon): this is bloody ridiculous, fix this function to not try things
-	// and to propogate errors on through
 	firstNumberAsProto, err := Parse(firstNumber, UNKNOWN_REGION)
 	if err == nil {
 		return isNumberMatchWithOneNumber(firstNumberAsProto, secondNumber)
-	}
-	if err != ErrInvalidCountryCode {
+	} else if err != ErrInvalidCountryCode {
 		return NOT_A_NUMBER
 	}
 
 	secondNumberAsProto, err := Parse(secondNumber, UNKNOWN_REGION)
 	if err == nil {
 		return isNumberMatchWithOneNumber(secondNumberAsProto, firstNumber)
-	}
-	if err != ErrInvalidCountryCode {
+	} else if err != ErrInvalidCountryCode {
 		return NOT_A_NUMBER
 	}
 
