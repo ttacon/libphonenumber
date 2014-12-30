@@ -2,6 +2,7 @@ package libphonenumber
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -373,6 +374,7 @@ var (
 		VALID_PHONE_NUMBER + "(?:" + EXTN_PATTERNS_FOR_PARSING + ")?")
 
 	NON_DIGITS_PATTERN = regexp.MustCompile("(\\D+)")
+	DIGITS_PATTERN     = regexp.MustCompile("(\\d+)")
 
 	// The FIRST_GROUP_PATTERN was originally set to $1 but there are some
 	// countries for which the first group is not used in the national
@@ -852,7 +854,7 @@ func getLengthOfNationalDestinationCode(number *PhoneNumber) int {
 	}
 
 	nationalSignificantNumber := Format(copiedProto, INTERNATIONAL)
-	numberGroups := NON_DIGITS_PATTERN.FindAllString(nationalSignificantNumber, -1)
+	numberGroups := DIGITS_PATTERN.FindAllString(nationalSignificantNumber, -1)
 	// The pattern will start with "+COUNTRY_CODE " so the first group
 	// will always be the empty string (before the + symbol) and the
 	// second group will be the country calling code. The third group
@@ -870,10 +872,10 @@ func getLengthOfNationalDestinationCode(number *PhoneNumber) int {
 		// from the rest of the phone number.
 		mobileToken := getCountryMobileToken(int(number.GetCountryCode()))
 		if mobileToken != "" {
-			return len(numberGroups[2]) + len(numberGroups[3])
+			return len(numberGroups[1]) + len(numberGroups[2])
 		}
 	}
-	return len(numberGroups[2])
+	return len(numberGroups[1])
 }
 
 // Returns the mobile token for the provided country calling code if it
@@ -1891,6 +1893,7 @@ func getExampleNumberForType(regionCode string, typ PhoneNumberType) *PhoneNumbe
 // non-geographical entity.
 func getExampleNumberForNonGeoEntity(countryCallingCode int) *PhoneNumber {
 	var metadata *PhoneMetadata = getMetadataForNonGeographicalRegion(countryCallingCode)
+	fmt.Println("meta: ", metadata)
 	if metadata == nil {
 		return nil
 	}

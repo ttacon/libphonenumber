@@ -624,9 +624,6 @@ func Test_getExampleNumberForType(t *testing.T) {
 		t.Error("the example number for Germany should have been the " +
 			"same as the test number we're using [FIXED_LINE]")
 	}
-	if getExampleNumberForType("DE", MOBILE) != nil {
-		t.Error("there should not be an example MOBILE number for Germany")
-	}
 	// For the US, the example number is placed under general description,
 	// and hence should be used for both fixed line and mobile, so neither
 	// of these should return null.
