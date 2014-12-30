@@ -2135,7 +2135,6 @@ func getRegionCodeForNumberFromRegionList(
 		// region codes come from the country calling code map.
 		var metadata *PhoneMetadata = getMetadataForRegion(regionCode)
 		if len(metadata.GetLeadingDigits()) > 0 {
-			// TODO(ttacon): is this okay? what error cases should we expect?
 			pat, ok := regexCache[metadata.GetLeadingDigits()]
 			if !ok {
 				patP := metadata.GetLeadingDigits()
