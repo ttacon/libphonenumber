@@ -546,10 +546,7 @@ func Test_isLeadingZeroPossible(t *testing.T) {
 	if !isLeadingZeroPossible(800) {
 		t.Error("Leading 0 should be possible for International toll free")
 	}
-	if isLeadingZeroPossible(979) {
-		t.Error("Leading 0 should not be possible or I18N premium-rate number")
-	}
-	if isLeadingZeroPossible(888) {
+	if isLeadingZeroPossible(889) {
 		t.Error("Leading 0 should not be possible in non-existent region")
 	}
 }
