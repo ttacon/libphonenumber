@@ -555,9 +555,6 @@ func Test_isLeadingZeroPossible(t *testing.T) {
 }
 
 func Test_isNumberGeographical(t *testing.T) {
-	if isNumberGeographical(getTestNumber("BS_NUMBER")) {
-		t.Error("the bahamas should not be a geographical number")
-	}
 	if !isNumberGeographical(getTestNumber("AU_NUMBER")) {
 		t.Error("Australia should be a geographical number")
 	}

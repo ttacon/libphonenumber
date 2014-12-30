@@ -2,7 +2,6 @@ package libphonenumber
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -587,7 +586,12 @@ func loadMetadataFromFile(
 
 	for _, meta := range metadataList {
 		region := meta.GetId()
-		regionToMetadataMap[region] = meta
+		if region == "001" {
+			// it's a non geographical entity
+			countryCodeToNonGeographicalMetadataMap[int(meta.GetCountryCode())] = meta
+		} else {
+			regionToMetadataMap[region] = meta
+		}
 	}
 
 	// TODO(ttacon): nongeos?
@@ -1893,7 +1897,6 @@ func getExampleNumberForType(regionCode string, typ PhoneNumberType) *PhoneNumbe
 // non-geographical entity.
 func getExampleNumberForNonGeoEntity(countryCallingCode int) *PhoneNumber {
 	var metadata *PhoneMetadata = getMetadataForNonGeographicalRegion(countryCallingCode)
-	fmt.Println("meta: ", metadata)
 	if metadata == nil {
 		return nil
 	}
