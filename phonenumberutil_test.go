@@ -53,7 +53,7 @@ func TestParse(t *testing.T) {
 			t.Errorf("[test %d:err] failed: %v != %v\n", i, err, test.err)
 		}
 		if num.GetNationalNumber() != test.expectedNum {
-			t.Errorf("[test %d:num] failed: %v != %v\n", i, err, test.err)
+			t.Errorf("[test %d:num] failed: %v != %v\n", i, num.GetNationalNumber(), test.expectedNum)
 		}
 	}
 }
