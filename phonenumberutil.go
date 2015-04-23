@@ -493,15 +493,15 @@ func (l Leniency) Verify(number *PhoneNumber, candidate string) bool {
 
 	switch l {
 	case POSSIBLE:
-		return isPossibleNumber(number)
+		return IsPossibleNumber(number)
 	case VALID:
-		if !isValidNumber(number) ||
+		if !IsValidNumber(number) ||
 			!ContainsOnlyValidXChars(number, candidate) {
 			return false
 		}
 		return IsNationalPrefixPresentIfRequired(number)
 	case STRICT_GROUPING:
-		if !isValidNumber(number) ||
+		if !IsValidNumber(number) ||
 			!ContainsOnlyValidXChars(number, candidate) ||
 			ContainsMoreThanOneSlashInNationalNumber(number, candidate) ||
 			!IsNationalPrefixPresentIfRequired(number) {
@@ -515,7 +515,7 @@ func (l Leniency) Verify(number *PhoneNumber, candidate string) bool {
 					number, normalizedCandidate, expectedNumberGroups)
 			})
 	case EXACT_GROUPING:
-		if !isValidNumber(number) ||
+		if !IsValidNumber(number) ||
 			!ContainsOnlyValidXChars(number, candidate) ||
 			ContainsMoreThanOneSlashInNationalNumber(number, candidate) ||
 			!IsNationalPrefixPresentIfRequired(number) {
@@ -1482,7 +1482,7 @@ func rawInputContainsNationalPrefix(rawInput, nationalPrefix, regionCode string)
 		if err != nil {
 			return false
 		}
-		return isValidNumber(num)
+		return IsValidNumber(num)
 
 	}
 	return false
@@ -2068,9 +2068,9 @@ func isNumberMatchingDesc(nationalNumber string, numberDesc *PhoneNumberDesc) bo
 // Tests whether a phone number matches a valid pattern. Note this doesn't
 // verify the number is actually in use, which is impossible to tell by
 // just looking at a number itself.
-func isValidNumber(number *PhoneNumber) bool {
+func IsValidNumber(number *PhoneNumber) bool {
 	var regionCode string = getRegionCodeForNumber(number)
-	return isValidNumberForRegion(number, regionCode)
+	return IsValidNumberForRegion(number, regionCode)
 }
 
 // Tests whether a phone number is valid for a certain region. Note this
@@ -2081,11 +2081,11 @@ func isValidNumber(number *PhoneNumber) bool {
 // region are examined. This is useful for determining for example whether
 // a particular number is valid for Canada, rather than just a valid NANPA
 // number.
-// Warning: In most cases, you want to use isValidNumber() instead. For
+// Warning: In most cases, you want to use IsValidNumber() instead. For
 // example, this method will mark numbers from British Crown dependencies
 // such as the Isle of Man as invalid for the region "GB" (United Kingdom),
 // since it has its own region code, "IM", which may be undesirable.
-func isValidNumberForRegion(number *PhoneNumber, regionCode string) bool {
+func IsValidNumberForRegion(number *PhoneNumber, regionCode string) bool {
 	var countryCode int = int(number.GetCountryCode())
 	var metadata *PhoneMetadata = getMetadataForRegionOrCallingCode(
 		countryCode, regionCode)
@@ -2244,8 +2244,8 @@ func isLeadingZeroPossible(countryCallingCode int) bool {
 // will have three or more alpha characters. This does not do
 // region-specific checks - to work out if this number is actually valid
 // for a region, it should be parsed and methods such as
-// isPossibleNumberWithReason() and isValidNumber() should be used.
-func isAlphaNumber(number string) bool {
+// isPossibleNumberWithReason() and IsValidNumber() should be used.
+func IsAlphaNumber(number string) bool {
 	if !isViablePhoneNumber(number) {
 		// Number is too short, or doesn't match the basic phone
 		// number pattern.
@@ -2258,7 +2258,7 @@ func isAlphaNumber(number string) bool {
 
 // Convenience wrapper around isPossibleNumberWithReason(). Instead of
 // returning the reason for failure, this method returns a boolean value.
-func isPossibleNumber(number *PhoneNumber) bool {
+func IsPossibleNumber(number *PhoneNumber) bool {
 	return isPossibleNumberWithReason(number) == IS_POSSIBLE
 }
 
@@ -2298,7 +2298,7 @@ func isShorterThanPossibleNormalNumber(
 }
 
 // Check whether a phone number is a possible number. It provides a more
-// lenient check than isValidNumber() in the following sense:
+// lenient check than IsValidNumber() in the following sense:
 //
 //  - It only checks the length of phone numbers. In particular, it
 //    doesn't check starting digits of the number.
@@ -2354,17 +2354,17 @@ func isPossibleNumberWithReason(number *PhoneNumber) ValidationResult {
 
 // Check whether a phone number is a possible number given a number in the
 // form of a string, and the region where the number could be dialed from.
-// It provides a more lenient check than isValidNumber(). See
-// isPossibleNumber(PhoneNumber) for details.
+// It provides a more lenient check than IsValidNumber(). See
+// IsPossibleNumber(PhoneNumber) for details.
 //
 // This method first parses the number, then invokes
-// isPossibleNumber(PhoneNumber) with the resultant PhoneNumber object.
+// IsPossibleNumber(PhoneNumber) with the resultant PhoneNumber object.
 func isPossibleNumberWithRegion(number, regionDialingFrom string) bool {
 	num, err := Parse(number, regionDialingFrom)
 	if err != nil {
 		return false
 	}
-	return isPossibleNumber(num)
+	return IsPossibleNumber(num)
 }
 
 // Attempts to extract a valid number from a phone number that is too long
@@ -2372,7 +2372,7 @@ func isPossibleNumberWithRegion(number, regionDialingFrom string) bool {
 // version. If no valid number could be extracted, the PhoneNumber object
 // passed in will not be modified.
 func TruncateTooLongNumber(number *PhoneNumber) bool {
-	if isValidNumber(number) {
+	if IsValidNumber(number) {
 		return true
 	}
 	var numberCopy *PhoneNumber
@@ -2383,7 +2383,7 @@ func TruncateTooLongNumber(number *PhoneNumber) bool {
 	if isPossibleNumberWithReason(numberCopy) == TOO_SHORT || nationalNumber == 0 {
 		return false
 	}
-	for !isValidNumber(numberCopy) {
+	for !IsValidNumber(numberCopy) {
 		nationalNumber /= 10
 		numberCopy.NationalNumber = proto.Uint64(nationalNumber)
 		if isPossibleNumberWithReason(numberCopy) == TOO_SHORT ||
@@ -2718,7 +2718,7 @@ func checkRegionForParsing(numberToParse, defaultRegion string) bool {
 // throw a NumberParseException if the number is not considered to be a
 // possible number. Note that validation of whether the number is actually
 // a valid number for a particular region is not performed. This can be
-// done separately with isValidNumber().
+// done separately with IsValidNumber().
 func Parse(numberToParse, defaultRegion string) (*PhoneNumber, error) {
 	var phoneNumber *PhoneNumber = &PhoneNumber{}
 	err := ParseToNumber(numberToParse, defaultRegion, phoneNumber)
