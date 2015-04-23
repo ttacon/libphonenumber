@@ -168,7 +168,7 @@ func Test_normalize(t *testing.T) {
 	}
 }
 
-func Test_isValidNumber(t *testing.T) {
+func Test_IsValidNumber(t *testing.T) {
 	var tests = []struct {
 		input   string
 		err     error
@@ -216,14 +216,14 @@ func Test_isValidNumber(t *testing.T) {
 		if test.err != nil {
 			continue
 		}
-		if isValidNumber(num) != test.isValid {
+		if IsValidNumber(num) != test.isValid {
 			t.Errorf("[test %d:validity] failed: %v != %v\n",
-				i, isValidNumber(num), test.isValid)
+				i, IsValidNumber(num), test.isValid)
 		}
 	}
 }
 
-func Test_isValidNumberForRegion(t *testing.T) {
+func Test_IsValidNumberForRegion(t *testing.T) {
 	var tests = []struct {
 		input            string
 		err              error
@@ -296,9 +296,9 @@ func Test_isValidNumberForRegion(t *testing.T) {
 		if test.err != nil {
 			continue
 		}
-		if isValidNumberForRegion(num, test.validationRegion) != test.isValid {
+		if IsValidNumberForRegion(num, test.validationRegion) != test.isValid {
 			t.Errorf("[test %d:validity] failed: %v != %v\n",
-				i, isValidNumberForRegion(num, test.validationRegion), test.isValid)
+				i, IsValidNumberForRegion(num, test.validationRegion), test.isValid)
 		}
 	}
 }
