@@ -475,8 +475,8 @@ func getTestNumber(alias string) *PhoneNumber {
 	return val
 }
 
-func Test_getSupportedRegions(t *testing.T) {
-	if len(getSupportedRegions()) == 0 {
+func Test_GetSupportedRegions(t *testing.T) {
+	if len(GetSupportedRegions()) == 0 {
 		t.Error("there should be supported regions, found none")
 	}
 }
@@ -585,10 +585,10 @@ func TestGetLengthOfGeographicalAreaCode(t *testing.T) {
 }
 
 func TestGetCountryMobileToken(t *testing.T) {
-	if "1" != getCountryMobileToken(GetCountryCodeForRegion("MX")) {
+	if "1" != GetCountryMobileToken(GetCountryCodeForRegion("MX")) {
 		t.Error("Mexico should have a mobile token == \"1\"")
 	}
-	if "" != getCountryMobileToken(GetCountryCodeForRegion("SE")) {
+	if "" != GetCountryMobileToken(GetCountryCodeForRegion("SE")) {
 		t.Error("Sweden should have a mobile token")
 	}
 }
@@ -608,34 +608,34 @@ func TestGetNationalSignificantNumber(t *testing.T) {
 	}
 }
 
-func Test_getExampleNumberForType(t *testing.T) {
-	if reflect.DeepEqual(getTestNumber("DE_NUMBER"), getExampleNumber("DE")) {
+func Test_GetExampleNumberForType(t *testing.T) {
+	if reflect.DeepEqual(getTestNumber("DE_NUMBER"), GetExampleNumber("DE")) {
 		t.Error("the example number for Germany should have been the " +
 			"same as the test number we're using")
 	}
 	if reflect.DeepEqual(
-		getTestNumber("DE_NUMBER"), getExampleNumberForType("DE", FIXED_LINE)) {
+		getTestNumber("DE_NUMBER"), GetExampleNumberForType("DE", FIXED_LINE)) {
 		t.Error("the example number for Germany should have been the " +
 			"same as the test number we're using [FIXED_LINE]")
 	}
 	// For the US, the example number is placed under general description,
 	// and hence should be used for both fixed line and mobile, so neither
 	// of these should return null.
-	if getExampleNumberForType("US", FIXED_LINE) == nil {
+	if GetExampleNumberForType("US", FIXED_LINE) == nil {
 		t.Error("FIXED_LINE example for US should not be nil")
 	}
-	if getExampleNumberForType("US", MOBILE) == nil {
+	if GetExampleNumberForType("US", MOBILE) == nil {
 		t.Error("FIXED_LINE example for US should not be nil")
 	}
 	// CS is an invalid region, so we have no data for it.
-	if getExampleNumberForType("CS", MOBILE) != nil {
+	if GetExampleNumberForType("CS", MOBILE) != nil {
 		t.Error("there should not be an example MOBILE number for the " +
 			"invalid region \"CS\"")
 	}
 	// RegionCode 001 is reserved for supporting non-geographical country
 	// calling code. We don't support getting an example number for it
 	// with this method.
-	if getExampleNumber("UN001") != nil {
+	if GetExampleNumber("UN001") != nil {
 		t.Error("there should not be an example number for UN001 " +
 			"that is retrievable by this method")
 	}
@@ -644,12 +644,12 @@ func Test_getExampleNumberForType(t *testing.T) {
 func TestGetExampleNumberForNonGeoEntity(t *testing.T) {
 	if !reflect.DeepEqual(
 		getTestNumber("INTERNATIONAL_TOLL_FREE"),
-		getExampleNumberForNonGeoEntity(800)) {
+		GetExampleNumberForNonGeoEntity(800)) {
 		t.Error("there should be an example 800 number")
 	}
 	if !reflect.DeepEqual(
 		getTestNumber("UNIVERSAL_PREMIUM_RATE"),
-		getExampleNumberForNonGeoEntity(979)) {
+		GetExampleNumberForNonGeoEntity(979)) {
 		t.Error("there should be an example number for 979")
 	}
 }
