@@ -10,7 +10,7 @@ import (
 
 	"github.com/ttacon/builder"
 
-	"code.google.com/p/goprotobuf/proto"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
