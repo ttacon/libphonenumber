@@ -609,11 +609,11 @@ func TestGetNationalSignificantNumber(t *testing.T) {
 }
 
 func Test_GetExampleNumberForType(t *testing.T) {
-	if reflect.DeepEqual(getTestNumber("DE_NUMBER"), GetExampleNumber("DE")) {
+	if !reflect.DeepEqual(getTestNumber("DE_NUMBER"), GetExampleNumber("DE")) {
 		t.Error("the example number for Germany should have been the " +
 			"same as the test number we're using")
 	}
-	if reflect.DeepEqual(
+	if !reflect.DeepEqual(
 		getTestNumber("DE_NUMBER"), GetExampleNumberForType("DE", FIXED_LINE)) {
 		t.Error("the example number for Germany should have been the " +
 			"same as the test number we're using [FIXED_LINE]")
