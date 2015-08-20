@@ -2542,7 +2542,7 @@ func maybeExtractCountryCode(
 func parsePrefixAsIdd(iddPattern *regexp.Regexp, number *builder.Builder) bool {
 	numStr := number.String()
 	ind := iddPattern.FindStringIndex(numStr)
-	if len(ind) == 0 {
+	if len(ind) == 0 || ind[0] != 0 {
 		return false
 	}
 	matchEnd := ind[1] // ind is a two element slice
@@ -2550,7 +2550,7 @@ func parsePrefixAsIdd(iddPattern *regexp.Regexp, number *builder.Builder) bool {
 	// a 0, since country calling codes cannot begin with 0.
 	find := CAPTURING_DIGIT_PATTERN.FindAllString(numStr[matchEnd:], -1)
 	if len(find) > 0 {
-		if NormalizeDigitsOnly(find[1]) == "0" {
+		if NormalizeDigitsOnly(find[0]) == "0" {
 			return false
 		}
 	}
@@ -2616,7 +2616,8 @@ func maybeStripNationalPrefixAndCarrierCode(
 		prefixMatcher = regexp.MustCompile(pat)
 		regexCache[pat] = prefixMatcher
 	}
-	if prefixMatcher.Match(number.Bytes()) {
+	isPrefixed := prefixMatcher.FindIndex(number.Bytes())
+	if len(isPrefixed) > 0 && isPrefixed[0] == 0 {
 		//if (prefixMatcher.lookingAt()) {
 		nationalNumberRule, ok :=
 			regexCache[metadata.GetGeneralDesc().GetNationalNumberPattern()]
