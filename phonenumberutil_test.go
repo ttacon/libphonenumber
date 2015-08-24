@@ -665,3 +665,43 @@ func Test_normalizeDiallableCharsOnly(t *testing.T) {
 		t.Error("did not correctly remove non-diallable characters")
 	}
 }
+
+func TestItalianLeadingZeroes(t *testing.T) {
+
+	tests := []struct {
+		num      string
+		region   string
+		expected string
+	}{
+		{
+			num:      "0491 570 156",
+			region:   "AU",
+			expected: "+61491570156",
+		},
+		{
+			num:      "02 5550 1234",
+			region:   "AU",
+			expected: "+61255501234",
+		},
+		{
+			num:      "+39.0399123456",
+			region:   "IT",
+			expected: "+390399123456",
+		},
+	}
+
+	for _, test := range tests {
+		n, err := Parse(test.num, test.region)
+		if err != nil {
+			t.Error("Failed to parse number %s", test.num)
+		}
+
+		if !IsValidNumberForRegion(n, test.region) {
+			t.Errorf("Number %v should be valid for region %s\n", n, test.region)
+		}
+		s := Format(n, E164)
+		if s != test.expected {
+			t.Errorf("Expected '%s', got '%s'", test.expected, s)
+		}
+	}
+}

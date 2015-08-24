@@ -2912,7 +2912,7 @@ func parseHelper(
 	if lengthOfNationalNumber > MAX_LENGTH_FOR_NSN {
 		return ErrNumTooLong
 	}
-	if !isLeadingZeroPossible(int(phoneNumber.GetCountryCode())) {
+	if isLeadingZeroPossible(int(phoneNumber.GetCountryCode())) {
 		setItalianLeadingZerosForPhoneNumber(
 			normalizedNationalNumber.String(), phoneNumber)
 	}
