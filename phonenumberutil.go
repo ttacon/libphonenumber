@@ -2044,19 +2044,19 @@ func getMetadataForNonGeographicalRegion(countryCallingCode int) *PhoneMetadata 
 func isNumberPossibleForDesc(
 	nationalNumber string, numberDesc *PhoneNumberDesc) bool {
 
-	pat, ok := regexCache[numberDesc.GetPossibleNumberPattern()]
+	possiblePattern := "^(?:" + numberDesc.GetPossibleNumberPattern() + ")$" // Strictly match
+	pat, ok := regexCache[possiblePattern]
 	if !ok {
-		patP := numberDesc.GetPossibleNumberPattern()
-		pat = regexp.MustCompile(patP)
-		regexCache[patP] = pat
+		pat = regexp.MustCompile(possiblePattern)
+		regexCache[possiblePattern] = pat
 	}
 	return pat.MatchString(nationalNumber)
 }
 
 func isNumberMatchingDesc(nationalNumber string, numberDesc *PhoneNumberDesc) bool {
-	pat, ok := regexCache[numberDesc.GetNationalNumberPattern()]
+	patP := "^(?:" + numberDesc.GetNationalNumberPattern() + ")$" // Strictly match
+	pat, ok := regexCache[patP]
 	if !ok {
-		patP := numberDesc.GetNationalNumberPattern()
 		pat = regexp.MustCompile(patP)
 		regexCache[patP] = pat
 	}
