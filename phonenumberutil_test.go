@@ -671,42 +671,85 @@ func Test_normalizeDiallableCharsOnly(t *testing.T) {
 	}
 }
 
-func TestItalianLeadingZeroes(t *testing.T) {
+type testCase struct {
+	num          string
+	region       string
+	expectedE164 string
+	valid        bool
+}
 
-	tests := []struct {
-		num      string
-		region   string
-		expected string
-	}{
-		{
-			num:      "0491 570 156",
-			region:   "AU",
-			expected: "+61491570156",
-		},
-		{
-			num:      "02 5550 1234",
-			region:   "AU",
-			expected: "+61255501234",
-		},
-		{
-			num:      "+39.0399123456",
-			region:   "IT",
-			expected: "+390399123456",
-		},
-	}
-
+func runTestBatch(t *testing.T, tests []testCase) {
 	for _, test := range tests {
 		n, err := Parse(test.num, test.region)
 		if err != nil {
-			t.Error("Failed to parse number %s", test.num)
+			t.Errorf("Failed to parse number %s: %s", err)
 		}
 
-		if !IsValidNumberForRegion(n, test.region) {
-			t.Errorf("Number %v should be valid for region %s\n", n, test.region)
+		if IsValidNumberForRegion(n, test.region) != test.valid {
+			t.Errorf("Number %s: validity mismatch: expected %t got %t.", test.num, test.valid, !test.valid)
 		}
+
 		s := Format(n, E164)
-		if s != test.expected {
-			t.Errorf("Expected '%s', got '%s'", test.expected, s)
+		if s != test.expectedE164 {
+			t.Errorf("Expected '%s', got '%s'", test.expectedE164, s)
 		}
 	}
+}
+
+func TestItalianLeadingZeroes(t *testing.T) {
+
+	tests := []testCase{
+		{
+			num:          "0491 570 156",
+			region:       "AU",
+			expectedE164: "+61491570156",
+			valid:        true,
+		},
+		{
+			num:          "02 5550 1234",
+			region:       "AU",
+			expectedE164: "+61255501234",
+			valid:        true,
+		},
+		{
+			num:          "+39.0399123456",
+			region:       "IT",
+			expectedE164: "+390399123456",
+			valid:        true,
+		},
+	}
+
+	runTestBatch(t, tests)
+}
+
+func TestARNumberTransformRule(t *testing.T) {
+	tests := []testCase{
+		{
+			num:          "+541151123456",
+			region:       "AR",
+			expectedE164: "+541151123456",
+			valid:        true,
+		},
+		{
+			num:          "+540111561234567",
+			region:       "AR",
+			expectedE164: "+5491161234567",
+			valid:        true,
+		},
+	}
+
+	runTestBatch(t, tests)
+}
+
+func TestLeadingOne(t *testing.T) {
+	tests := []testCase{
+		{
+			num:          "15167706076",
+			region:       "US",
+			expectedE164: "+15167706076",
+			valid:        true,
+		},
+	}
+
+	runTestBatch(t, tests)
 }
