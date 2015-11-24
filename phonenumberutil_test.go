@@ -508,7 +508,7 @@ func Test_getMetadata(t *testing.T) {
 			cc:         49,
 			i18nPref:   "00",
 			natPref:    "0",
-			numFmtSize: 15,
+			numFmtSize: 16,
 		}, {
 			name:       "AR",
 			id:         "AR",
