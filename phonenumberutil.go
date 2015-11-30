@@ -2137,7 +2137,7 @@ func getRegionCodeForNumberFromRegionList(
 		if len(metadata.GetLeadingDigits()) > 0 {
 			pat, ok := regexCache[metadata.GetLeadingDigits()]
 			if !ok {
-				patP := metadata.GetLeadingDigits()
+				patP := "^" + metadata.GetLeadingDigits()
 				pat = regexp.MustCompile(patP)
 				regexCache[patP] = pat
 			}
