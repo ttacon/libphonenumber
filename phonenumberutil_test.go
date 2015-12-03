@@ -321,14 +321,14 @@ func TestFormat(t *testing.T) {
 		frmt   PhoneNumberFormat
 	}{
 		{
-			in:     "01932 869755",
+			in:     "019 3286 9755",
 			region: "GB",
-			exp:    "019 3286 9755",
+			exp:    "01932 869755",
 			frmt:   NATIONAL,
 		}, {
 			in:     "+44 (0) 1932 869755",
 			region: "GB",
-			exp:    "+44 19 3286 9755",
+			exp:    "+44 1932 869755",
 			frmt:   INTERNATIONAL,
 		}, {
 			in:     "4431234567",
