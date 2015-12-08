@@ -1733,11 +1733,11 @@ func chooseFormattingPatternForNumber(
 		leadingDigitsPattern := numFormat.GetLeadingDigitsPattern()
 		size := len(leadingDigitsPattern)
 
+		patP := `^(?:` + numFormat.GetPattern() + `)$` // Strictly match
 		m, ok := regexCache[numFormat.GetPattern()]
 		if !ok {
-			pat := numFormat.GetPattern()
-			m = regexp.MustCompile(pat)
-			regexCache[pat] = m
+			m = regexp.MustCompile(patP)
+			regexCache[patP] = m
 		}
 
 		if size == 0 {
@@ -1759,7 +1759,7 @@ func chooseFormattingPatternForNumber(
 		}
 
 		inds := reg.FindStringIndex(nationalNumber)
-		if len(inds) > 0 && m.MatchString(nationalNumber) {
+		if len(inds) > 0 && inds[0] == 0 && m.MatchString(nationalNumber) { // inds[0] == 0 ensures strict match of leading digits
 			return numFormat
 		}
 	}
@@ -2135,9 +2135,9 @@ func getRegionCodeForNumberFromRegionList(
 		// region codes come from the country calling code map.
 		var metadata *PhoneMetadata = getMetadataForRegion(regionCode)
 		if len(metadata.GetLeadingDigits()) > 0 {
-			pat, ok := regexCache[metadata.GetLeadingDigits()]
+			patP := "^(?:" + metadata.GetLeadingDigits() + ")" // Non capturing grouping to support OR'ed alternatives (e.g. 555|1[78]|2)
+			pat, ok := regexCache[patP]
 			if !ok {
-				patP := "^" + metadata.GetLeadingDigits()
 				pat = regexp.MustCompile(patP)
 				regexCache[patP] = pat
 			}
@@ -2271,15 +2271,15 @@ func testNumberLengthAgainstPattern(
 	numberPattern *regexp.Regexp,
 	number string) ValidationResult {
 
-	if numberPattern.MatchString(number) {
-		return IS_POSSIBLE
+	inds := numberPattern.FindStringIndex(number)
+	if len(inds) > 0 && inds[0] == 0 && inds[1] == len(number) {
+		if inds[1] == len(number) { // Exact match
+			return IS_POSSIBLE
+		}
+		return TOO_LONG // Matches input start but not end
 	}
 
-	inds := numberPattern.FindStringIndex(number)
-	if len(inds) > 0 {
-		return TOO_LONG
-	}
-	return TOO_SHORT
+	return TOO_SHORT // Does not match input start
 }
 
 // Helper method to check whether a number is too short to be a regular
@@ -2497,12 +2497,12 @@ func maybeExtractCountryCode(
 				potentialNationalNumber = builder.NewBuilderString(
 					normalizedNumber[len(defaultCountryCodeString):])
 				generalDesc            = defaultRegionMetadata.GetGeneralDesc()
-				validNumberPattern, ok = regexCache[generalDesc.GetNationalNumberPattern()]
+				patP                   = `^(?:` + generalDesc.GetNationalNumberPattern() + `)$` // Strictly match
+				validNumberPattern, ok = regexCache[patP]
 			)
 			if !ok {
-				pat := generalDesc.GetNationalNumberPattern()
-				validNumberPattern = regexp.MustCompile(pat)
-				regexCache[pat] = validNumberPattern
+				validNumberPattern = regexp.MustCompile(patP)
+				regexCache[patP] = validNumberPattern
 			}
 			maybeStripNationalPrefixAndCarrierCode(
 				potentialNationalNumber,
