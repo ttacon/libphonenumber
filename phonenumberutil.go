@@ -4,7 +4,6 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -583,7 +582,6 @@ func readFromRegexCache(key string) (*regexp.Regexp, bool) {
 	regCacheMutex.RLock()
 	v, ok := regexCache[key]
 	regCacheMutex.RUnlock()
-	runtime.Gosched()
 	return v, ok
 }
 
@@ -591,14 +589,12 @@ func writeToRegexCache(key string, value *regexp.Regexp) {
 	regCacheMutex.Lock()
 	regexCache[key] = value
 	regCacheMutex.Unlock()
-	runtime.Gosched()
 }
 
 func readFromNanpaRegions(key string) (struct{}, bool) {
 	nRMutex.RLock()
 	v, ok := nanpaRegions[key]
 	nRMutex.RUnlock()
-	runtime.Gosched()
 	return v, ok
 }
 
@@ -606,14 +602,12 @@ func writeToNanpaRegions(key string, val struct{}) {
 	nRMutex.Lock()
 	nanpaRegions[key] = val
 	nRMutex.Unlock()
-	runtime.Gosched()
 }
 
 func readFromRegionToMetadataMap(key string) (*PhoneMetadata, bool) {
 	rTMMutex.RLock()
 	v, ok := regionToMetadataMap[key]
 	rTMMutex.RUnlock()
-	runtime.Gosched()
 	return v, ok
 }
 
@@ -621,7 +615,6 @@ func writeToRegionToMetadataMap(key string, val *PhoneMetadata) {
 	rTMMutex.Lock()
 	regionToMetadataMap[key] = val
 	rTMMutex.Unlock()
-	runtime.Gosched()
 }
 
 func readFromCountryCodeToNonGeographicalMetadataMap(key int) (*PhoneMetadata,
@@ -629,7 +622,6 @@ func readFromCountryCodeToNonGeographicalMetadataMap(key int) (*PhoneMetadata,
 	ccToNGMMutex.RLock()
 	v, ok := countryCodeToNonGeographicalMetadataMap[key]
 	ccToNGMMutex.RUnlock()
-	runtime.Gosched()
 	return v, ok
 }
 
@@ -637,14 +629,12 @@ func writeToCountryCodeToNonGeographicalMetadataMap(key int, v *PhoneMetadata) {
 	ccToNGMMutex.Lock()
 	countryCodeToNonGeographicalMetadataMap[key] = v
 	ccToNGMMutex.Unlock()
-	runtime.Gosched()
 }
 
 func readFromSupportedRegions(key string) (struct{}, bool) {
 	sRMutex.RLock()
 	v, ok := supportedRegions[key]
 	sRMutex.RUnlock()
-	runtime.Gosched()
 	return v, ok
 }
 
@@ -652,21 +642,18 @@ func writeToSupportedRegions(key string, val struct{}) {
 	sRMutex.Lock()
 	supportedRegions[key] = val
 	sRMutex.Unlock()
-	runtime.Gosched()
 }
 
 func deleteFromSupportedRegions(key string) {
 	sRMutex.Lock()
 	delete(supportedRegions, key)
 	sRMutex.Unlock()
-	runtime.Gosched()
 }
 
 func readFromCCsForNonGeographicalRegion(key int) (struct{}, bool) {
 	ccForNGRMutex.RLock()
 	v, ok := countryCodesForNonGeographicalRegion[key]
 	ccForNGRMutex.RUnlock()
-	runtime.Gosched()
 	return v, ok
 }
 
@@ -674,7 +661,6 @@ func writeToCCsForNonGeographicalRegion(key int, val struct{}) {
 	ccForNGRMutex.Lock()
 	countryCodesForNonGeographicalRegion[key] = val
 	ccForNGRMutex.Unlock()
-	runtime.Gosched()
 }
 
 func loadMetadataFromFile(
