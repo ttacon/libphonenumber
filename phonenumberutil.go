@@ -540,13 +540,11 @@ var (
 	// The set of regions that share country calling code 1.
 	// There are roughly 26 regions.
 	nanpaRegions = make(map[string]struct{})
-	nRMutex      sync.RWMutex
 
 	// A mapping from a region code to the PhoneMetadata for that region.
 	// Note: Synchronization, though only needed for the Android version
 	// of the library, is used in all versions for consistency.
 	regionToMetadataMap = make(map[string]*PhoneMetadata)
-	rTMMutex            sync.RWMutex
 
 	// A mapping from a country calling code for a non-geographical
 	// entity to the PhoneMetadata for that country calling code.
@@ -555,7 +553,6 @@ var (
 	// Note: Synchronization, though only needed for the Android version
 	// of the library, is used in all versions for consistency.
 	countryCodeToNonGeographicalMetadataMap = make(map[int]*PhoneMetadata)
-	ccToNGMMutex                            sync.RWMutex
 
 	// A cache for frequently used region-specific regular expressions.
 	// The initial capacity is set to 100 as this seems to be an optimal
@@ -567,13 +564,11 @@ var (
 	// There are roughly 240 of them and we set the initial capacity of
 	// the HashSet to 320 to offer a load factor of roughly 0.75.
 	supportedRegions = make(map[string]struct{})
-	sRMutex          sync.RWMutex
 
 	// The set of county calling codes that ma`p to the non-geo entity
 	// region ("001"). This set currently contains < 12 elements so the
 	// default capacity of 16 (load factor=0.75) is fine.
 	countryCodesForNonGeographicalRegion = make(map[int]struct{})
-	ccForNGRMutex                        sync.RWMutex
 )
 
 var ErrEmptyMetadata = errors.New("empty metadata")
@@ -592,75 +587,53 @@ func writeToRegexCache(key string, value *regexp.Regexp) {
 }
 
 func readFromNanpaRegions(key string) (struct{}, bool) {
-	nRMutex.RLock()
 	v, ok := nanpaRegions[key]
-	nRMutex.RUnlock()
 	return v, ok
 }
 
 func writeToNanpaRegions(key string, val struct{}) {
-	nRMutex.Lock()
 	nanpaRegions[key] = val
-	nRMutex.Unlock()
 }
 
 func readFromRegionToMetadataMap(key string) (*PhoneMetadata, bool) {
-	rTMMutex.RLock()
 	v, ok := regionToMetadataMap[key]
-	rTMMutex.RUnlock()
 	return v, ok
 }
 
 func writeToRegionToMetadataMap(key string, val *PhoneMetadata) {
-	rTMMutex.Lock()
 	regionToMetadataMap[key] = val
-	rTMMutex.Unlock()
 }
 
 func readFromCountryCodeToNonGeographicalMetadataMap(key int) (*PhoneMetadata,
 	bool) {
-	ccToNGMMutex.RLock()
 	v, ok := countryCodeToNonGeographicalMetadataMap[key]
-	ccToNGMMutex.RUnlock()
 	return v, ok
 }
 
 func writeToCountryCodeToNonGeographicalMetadataMap(key int, v *PhoneMetadata) {
-	ccToNGMMutex.Lock()
 	countryCodeToNonGeographicalMetadataMap[key] = v
-	ccToNGMMutex.Unlock()
 }
 
 func readFromSupportedRegions(key string) (struct{}, bool) {
-	sRMutex.RLock()
 	v, ok := supportedRegions[key]
-	sRMutex.RUnlock()
 	return v, ok
 }
 
 func writeToSupportedRegions(key string, val struct{}) {
-	sRMutex.Lock()
 	supportedRegions[key] = val
-	sRMutex.Unlock()
 }
 
 func deleteFromSupportedRegions(key string) {
-	sRMutex.Lock()
 	delete(supportedRegions, key)
-	sRMutex.Unlock()
 }
 
 func readFromCCsForNonGeographicalRegion(key int) (struct{}, bool) {
-	ccForNGRMutex.RLock()
 	v, ok := countryCodesForNonGeographicalRegion[key]
-	ccForNGRMutex.RUnlock()
 	return v, ok
 }
 
 func writeToCCsForNonGeographicalRegion(key int, val struct{}) {
-	ccForNGRMutex.Lock()
 	countryCodesForNonGeographicalRegion[key] = val
-	ccForNGRMutex.Unlock()
 }
 
 func loadMetadataFromFile(
