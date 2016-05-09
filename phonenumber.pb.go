@@ -5,19 +5,33 @@
 package libphonenumber
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
 import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
 var _ = math.Inf
 
+// The source from which the country_code is derived. This is not set in the general parsing method,
+// but in the method that parses and keeps raw_input. New fields could be added upon request.
 type PhoneNumber_CountryCodeSource int32
 
 const (
-	PhoneNumber_FROM_NUMBER_WITH_PLUS_SIGN    PhoneNumber_CountryCodeSource = 1
-	PhoneNumber_FROM_NUMBER_WITH_IDD          PhoneNumber_CountryCodeSource = 5
+	// The country_code is derived based on a phone number with a leading "+", e.g. the French
+	// number "+33 1 42 68 53 00".
+	PhoneNumber_FROM_NUMBER_WITH_PLUS_SIGN PhoneNumber_CountryCodeSource = 1
+	// The country_code is derived based on a phone number with a leading IDD, e.g. the French
+	// number "011 33 1 42 68 53 00", as it is dialled from US.
+	PhoneNumber_FROM_NUMBER_WITH_IDD PhoneNumber_CountryCodeSource = 5
+	// The country_code is derived based on a phone number without a leading "+", e.g. the French
+	// number "33 1 42 68 53 00" when defaultCountry is supplied as France.
 	PhoneNumber_FROM_NUMBER_WITHOUT_PLUS_SIGN PhoneNumber_CountryCodeSource = 10
-	PhoneNumber_FROM_DEFAULT_COUNTRY          PhoneNumber_CountryCodeSource = 20
+	// The country_code is derived NOT based on the phone number itself, but from the defaultCountry
+	// parameter provided in the parsing function by the clients. This happens mostly for numbers
+	// written in the national format (without country code). For example, this would be set when
+	// parsing the French number "01 42 68 53 00", when defaultCountry is supplied as France.
+	PhoneNumber_FROM_DEFAULT_COUNTRY PhoneNumber_CountryCodeSource = 20
 )
 
 var PhoneNumber_CountryCodeSource_name = map[int32]string{
@@ -49,22 +63,63 @@ func (x *PhoneNumber_CountryCodeSource) UnmarshalJSON(data []byte) error {
 	*x = PhoneNumber_CountryCodeSource(value)
 	return nil
 }
-
-type PhoneNumber struct {
-	CountryCode                  *int32                         `protobuf:"varint,1,req,name=country_code" json:"country_code,omitempty"`
-	NationalNumber               *uint64                        `protobuf:"varint,2,req,name=national_number" json:"national_number,omitempty"`
-	Extension                    *string                        `protobuf:"bytes,3,opt,name=extension" json:"extension,omitempty"`
-	ItalianLeadingZero           *bool                          `protobuf:"varint,4,opt,name=italian_leading_zero" json:"italian_leading_zero,omitempty"`
-	NumberOfLeadingZeros         *int32                         `protobuf:"varint,8,opt,name=number_of_leading_zeros,def=1" json:"number_of_leading_zeros,omitempty"`
-	RawInput                     *string                        `protobuf:"bytes,5,opt,name=raw_input" json:"raw_input,omitempty"`
-	CountryCodeSource            *PhoneNumber_CountryCodeSource `protobuf:"varint,6,opt,name=country_code_source,enum=i18n.phonenumbers.PhoneNumber_CountryCodeSource" json:"country_code_source,omitempty"`
-	PreferredDomesticCarrierCode *string                        `protobuf:"bytes,7,opt,name=preferred_domestic_carrier_code" json:"preferred_domestic_carrier_code,omitempty"`
-	XXX_unrecognized             []byte                         `json:"-"`
+func (PhoneNumber_CountryCodeSource) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor1, []int{0, 0}
 }
 
-func (m *PhoneNumber) Reset()         { *m = PhoneNumber{} }
-func (m *PhoneNumber) String() string { return proto.CompactTextString(m) }
-func (*PhoneNumber) ProtoMessage()    {}
+type PhoneNumber struct {
+	// The country calling code for this number, as defined by the International Telecommunication Union
+	// (ITU). For example, this would be 1 for NANPA countries, and 33 for France.
+	CountryCode *int32 `protobuf:"varint,1,req,name=country_code,json=countryCode" json:"country_code,omitempty"`
+	// National (significant) Number is defined in International Telecommunication Union (ITU)
+	// Recommendation E.164. It is a language/country-neutral representation of a phone number at a
+	// country level. For countries which have the concept of an "area code" or "national destination
+	// code", this is included in the National (significant) Number. Although the ITU says the maximum
+	// length should be 15, we have found longer numbers in some countries e.g. Germany.
+	// Note that the National (significant) Number does not contain the National(trunk) prefix.
+	// Obviously, as a uint64, it will never contain any formatting (hyphens, spaces, parentheses), nor
+	// any alphanumeric spellings.
+	NationalNumber *uint64 `protobuf:"varint,2,req,name=national_number,json=nationalNumber" json:"national_number,omitempty"`
+	// Extension is not standardized in ITU recommendations, except for being defined as a series of
+	// numbers with a maximum length of 40 digits. It is defined as a string here to accommodate for the
+	// possible use of a leading zero in the extension (organizations have complete freedom to do so,
+	// as there is no standard defined). However, only ASCII digits should be stored here.
+	Extension *string `protobuf:"bytes,3,opt,name=extension" json:"extension,omitempty"`
+	// In some countries, the national (significant) number starts with one or more "0"s without this
+	// being a national prefix or trunk code of some kind. For example, the leading zero in the national
+	// (significant) number of an Italian phone number indicates the number is a fixed-line number.
+	// There have been plans to migrate fixed-line numbers to start with the digit two since December
+	// 2000, but it has not happened yet. See http://en.wikipedia.org/wiki/%2B39 for more details.
+	//
+	// These fields can be safely ignored (there is no need to set them) for most countries. Some
+	// limited number of countries behave like Italy - for these cases, if the leading zero(s) of a
+	// number would be retained even when dialling internationally, set this flag to true, and also
+	// set the number of leading zeros.
+	//
+	// Clients who use the parsing functionality of the i18n phone number libraries
+	// will have these fields set if necessary automatically.
+	ItalianLeadingZero   *bool  `protobuf:"varint,4,opt,name=italian_leading_zero,json=italianLeadingZero" json:"italian_leading_zero,omitempty"`
+	NumberOfLeadingZeros *int32 `protobuf:"varint,8,opt,name=number_of_leading_zeros,json=numberOfLeadingZeros,def=1" json:"number_of_leading_zeros,omitempty"`
+	// This field is used to store the raw input string containing phone numbers before it was
+	// canonicalized by the library. For example, it could be used to store alphanumerical numbers
+	// such as "1-800-GOOG-411".
+	RawInput *string `protobuf:"bytes,5,opt,name=raw_input,json=rawInput" json:"raw_input,omitempty"`
+	// The source from which the country_code is derived.
+	CountryCodeSource *PhoneNumber_CountryCodeSource `protobuf:"varint,6,opt,name=country_code_source,json=countryCodeSource,enum=i18n.phonenumbers.PhoneNumber_CountryCodeSource" json:"country_code_source,omitempty"`
+	// The carrier selection code that is preferred when calling this phone number domestically. This
+	// also includes codes that need to be dialed in some countries when calling from landlines to
+	// mobiles or vice versa. For example, in Columbia, a "3" needs to be dialed before the phone number
+	// itself when calling from a mobile phone to a domestic landline phone and vice versa.
+	//
+	// Note this is the "preferred" code, which means other codes may work as well.
+	PreferredDomesticCarrierCode *string `protobuf:"bytes,7,opt,name=preferred_domestic_carrier_code,json=preferredDomesticCarrierCode" json:"preferred_domestic_carrier_code,omitempty"`
+	XXX_unrecognized             []byte  `json:"-"`
+}
+
+func (m *PhoneNumber) Reset()                    { *m = PhoneNumber{} }
+func (m *PhoneNumber) String() string            { return proto.CompactTextString(m) }
+func (*PhoneNumber) ProtoMessage()               {}
+func (*PhoneNumber) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
 const Default_PhoneNumber_NumberOfLeadingZeros int32 = 1
 
@@ -125,5 +180,35 @@ func (m *PhoneNumber) GetPreferredDomesticCarrierCode() string {
 }
 
 func init() {
+	proto.RegisterType((*PhoneNumber)(nil), "i18n.phonenumbers.PhoneNumber")
 	proto.RegisterEnum("i18n.phonenumbers.PhoneNumber_CountryCodeSource", PhoneNumber_CountryCodeSource_name, PhoneNumber_CountryCodeSource_value)
+}
+
+var fileDescriptor1 = []byte{
+	// 396 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x64, 0x91, 0xdf, 0x8e, 0x93, 0x40,
+	0x18, 0xc5, 0xc3, 0x6e, 0xd1, 0x76, 0xd6, 0xac, 0x65, 0x24, 0x71, 0xa2, 0x55, 0xeb, 0xde, 0xb8,
+	0x57, 0x64, 0xd7, 0xab, 0xc6, 0x3b, 0x0b, 0xad, 0x25, 0x69, 0xa1, 0x99, 0x42, 0x8c, 0xde, 0x8c,
+	0x08, 0xd3, 0x3a, 0x09, 0x9d, 0x21, 0x03, 0xc4, 0x3f, 0x8f, 0xe0, 0x03, 0xf9, 0x7c, 0x4e, 0x01,
+	0x5b, 0x2c, 0x97, 0xfc, 0xce, 0x39, 0xdf, 0x7c, 0xdf, 0x01, 0x18, 0xd9, 0x37, 0xc1, 0x29, 0x2f,
+	0xf7, 0x5f, 0xa9, 0xb4, 0x32, 0x29, 0x0a, 0x01, 0x0d, 0x76, 0x3f, 0xe1, 0x56, 0x8b, 0xe7, 0x37,
+	0x7f, 0x7a, 0xe0, 0x6a, 0x7d, 0x00, 0x5e, 0x05, 0xe0, 0x6b, 0xf0, 0x28, 0x16, 0x25, 0x2f, 0xe4,
+	0x4f, 0x12, 0x8b, 0x84, 0x22, 0x6d, 0x7c, 0x71, 0xab, 0xe3, 0xab, 0x86, 0xd9, 0x0a, 0xc1, 0x37,
+	0xe0, 0x31, 0x8f, 0x0a, 0x26, 0x78, 0x94, 0x92, 0x7a, 0x0c, 0xba, 0x50, 0xae, 0x1e, 0xbe, 0xfe,
+	0x87, 0x9b, 0x59, 0x23, 0x30, 0xa0, 0x3f, 0x0a, 0xca, 0x73, 0x05, 0xd1, 0xe5, 0x58, 0xbb, 0x1d,
+	0xe0, 0x13, 0x80, 0x77, 0xc0, 0x64, 0x45, 0x94, 0xb2, 0x88, 0x93, 0x94, 0x46, 0x09, 0xe3, 0x3b,
+	0xf2, 0x8b, 0x4a, 0x81, 0x7a, 0xca, 0xd8, 0xc7, 0xb0, 0xd1, 0x96, 0xb5, 0xf4, 0x59, 0x29, 0x70,
+	0x02, 0x9e, 0xd6, 0xef, 0x11, 0xb1, 0xfd, 0x2f, 0x93, 0xa3, 0xbe, 0x0a, 0xe9, 0xef, 0xb4, 0x7b,
+	0x6c, 0xd6, 0x0e, 0x7f, 0xdb, 0x0a, 0xe6, 0xf0, 0x39, 0x18, 0xc8, 0xe8, 0x3b, 0x61, 0x3c, 0x2b,
+	0x0b, 0xa4, 0x57, 0x9b, 0xf4, 0x15, 0x70, 0x0f, 0xdf, 0xf0, 0x0b, 0x78, 0xd2, 0x3e, 0x99, 0xe4,
+	0xa2, 0x94, 0x31, 0x45, 0x0f, 0x94, 0xed, 0xfa, 0xed, 0x9d, 0xd5, 0xe9, 0xcc, 0x6a, 0xf5, 0x65,
+	0xd9, 0xa7, 0x62, 0x36, 0x55, 0x0e, 0x1b, 0xf1, 0x39, 0x82, 0x33, 0xf0, 0x2a, 0x93, 0x74, 0x4b,
+	0xa5, 0xa4, 0x09, 0x49, 0xc4, 0x9e, 0xe6, 0x05, 0x8b, 0x49, 0x1c, 0x49, 0xc9, 0xd4, 0x31, 0x55,
+	0xcf, 0x0f, 0xab, 0xa5, 0x46, 0x47, 0x9b, 0xd3, 0xb8, 0xec, 0xda, 0x74, 0x18, 0x76, 0xf3, 0x5b,
+	0x03, 0x46, 0xe7, 0x3d, 0xf8, 0x12, 0x3c, 0x9b, 0x63, 0x7f, 0x45, 0xbc, 0x70, 0x35, 0x9d, 0x61,
+	0xf2, 0xd1, 0x0d, 0x16, 0x64, 0xbd, 0x0c, 0x37, 0x64, 0xe3, 0x7e, 0xf0, 0x86, 0x1a, 0x44, 0xc0,
+	0xec, 0xe8, 0xae, 0xe3, 0x0c, 0x75, 0xf5, 0xaf, 0x5f, 0x9c, 0x2b, 0x7e, 0x18, 0xb4, 0xc2, 0xe0,
+	0x18, 0x76, 0x66, 0xf3, 0xf7, 0xe1, 0x32, 0x20, 0xb6, 0x1f, 0x7a, 0x01, 0xfe, 0x34, 0x34, 0xa7,
+	0x63, 0x30, 0x8a, 0xc5, 0xde, 0xda, 0x09, 0xb1, 0x4b, 0x69, 0xb7, 0xa4, 0xc5, 0xe5, 0xdf, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0x99, 0xed, 0xea, 0xc1, 0x81, 0x02, 0x00, 0x00,
 }
