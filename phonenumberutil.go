@@ -1172,7 +1172,7 @@ func FormatNumberForMobileDialing(
 	formattedNumber := ""
 	// Clear the extension, as that part cannot normally be dialed
 	// together with the main number.
-	var numberNoExt *PhoneNumber
+	var numberNoExt = &PhoneNumber{}
 	proto.Merge(numberNoExt, number)
 	numberNoExt.Extension = nil // can we assume this is safe? (no nil-pointer?)
 	regionCode := GetRegionCodeForCountryCode(countryCallingCode)
