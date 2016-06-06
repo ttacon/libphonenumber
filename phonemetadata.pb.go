@@ -14,29 +14,90 @@ It has these top-level messages:
 	PhoneNumberDesc
 	PhoneMetadata
 	PhoneMetadataCollection
+	PhoneNumber
 */
 package libphonenumber
 
 import proto "github.com/golang/protobuf/proto"
+import fmt "fmt"
 import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
+var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+const _ = proto.ProtoPackageIsVersion1
+
 type NumberFormat struct {
-	Pattern                              *string  `protobuf:"bytes,1,req,name=pattern" json:"pattern,omitempty"`
-	Format                               *string  `protobuf:"bytes,2,req,name=format" json:"format,omitempty"`
-	LeadingDigitsPattern                 []string `protobuf:"bytes,3,rep,name=leading_digits_pattern" json:"leading_digits_pattern,omitempty"`
-	NationalPrefixFormattingRule         *string  `protobuf:"bytes,4,opt,name=national_prefix_formatting_rule" json:"national_prefix_formatting_rule,omitempty"`
-	NationalPrefixOptionalWhenFormatting *bool    `protobuf:"varint,6,opt,name=national_prefix_optional_when_formatting" json:"national_prefix_optional_when_formatting,omitempty"`
-	DomesticCarrierCodeFormattingRule    *string  `protobuf:"bytes,5,opt,name=domestic_carrier_code_formatting_rule" json:"domestic_carrier_code_formatting_rule,omitempty"`
-	XXX_unrecognized                     []byte   `json:"-"`
+	// pattern is a regex that is used to match the national (significant)
+	// number. For example, the pattern "(20)(\d{4})(\d{4})" will match number
+	// "2070313000", which is the national (significant) number for Google London.
+	// Note the presence of the parentheses, which are capturing groups what
+	// specifies the grouping of numbers.
+	Pattern *string `protobuf:"bytes,1,req,name=pattern" json:"pattern,omitempty"`
+	// format specifies how the national (significant) number matched by
+	// pattern should be formatted.
+	// Using the same example as above, format could contain "$1 $2 $3",
+	// meaning that the number should be formatted as "20 7031 3000".
+	// Each $x are replaced by the numbers captured by group x in the
+	// regex specified by pattern.
+	Format *string `protobuf:"bytes,2,req,name=format" json:"format,omitempty"`
+	// This field is a regex that is used to match a certain number of digits
+	// at the beginning of the national (significant) number. When the match is
+	// successful, the accompanying pattern and format should be used to format
+	// this number. For example, if leading_digits="[1-3]|44", then all the
+	// national numbers starting with 1, 2, 3 or 44 should be formatted using the
+	// accompanying pattern and format.
+	//
+	// The first leadingDigitsPattern matches up to the first three digits of the
+	// national (significant) number; the next one matches the first four digits,
+	// then the first five and so on, until the leadingDigitsPattern can uniquely
+	// identify one pattern and format to be used to format the number.
+	//
+	// In the case when only one formatting pattern exists, no
+	// leading_digits_pattern is needed.
+	LeadingDigitsPattern []string `protobuf:"bytes,3,rep,name=leading_digits_pattern,json=leadingDigitsPattern" json:"leading_digits_pattern,omitempty"`
+	// This field specifies how the national prefix ($NP) together with the first
+	// group ($FG) in the national significant number should be formatted in
+	// the NATIONAL format when a national prefix exists for a certain country.
+	// For example, when this field contains "($NP$FG)", a number from Beijing,
+	// China (whose $NP = 0), which would by default be formatted without
+	// national prefix as 10 1234 5678 in NATIONAL format, will instead be
+	// formatted as (010) 1234 5678; to format it as (0)10 1234 5678, the field
+	// would contain "($NP)$FG". Note $FG should always be present in this field,
+	// but $NP can be omitted. For example, having "$FG" could indicate the
+	// number should be formatted in NATIONAL format without the national prefix.
+	// This is commonly used to override the rule specified for the territory in
+	// the XML file.
+	//
+	// When this field is missing, a number will be formatted without national
+	// prefix in NATIONAL format. This field does not affect how a number
+	// is formatted in other formats, such as INTERNATIONAL.
+	NationalPrefixFormattingRule *string `protobuf:"bytes,4,opt,name=national_prefix_formatting_rule,json=nationalPrefixFormattingRule" json:"national_prefix_formatting_rule,omitempty"`
+	// This field specifies whether the $NP can be omitted when formatting a
+	// number in national format, even though it usually wouldn't be. For example,
+	// a UK number would be formatted by our library as 020 XXXX XXXX. If we have
+	// commonly seen this number written by people without the leading 0, for
+	// example as (20) XXXX XXXX, this field would be set to true. This will be
+	// inherited from the value set for the territory in the XML file, unless a
+	// national_prefix_optional_when_formatting is defined specifically for this
+	// NumberFormat.
+	NationalPrefixOptionalWhenFormatting *bool `protobuf:"varint,6,opt,name=national_prefix_optional_when_formatting,json=nationalPrefixOptionalWhenFormatting" json:"national_prefix_optional_when_formatting,omitempty"`
+	// This field specifies how any carrier code ($CC) together with the first
+	// group ($FG) in the national significant number should be formatted
+	// when formatWithCarrierCode is called, if carrier codes are used for a
+	// certain country.
+	DomesticCarrierCodeFormattingRule *string `protobuf:"bytes,5,opt,name=domestic_carrier_code_formatting_rule,json=domesticCarrierCodeFormattingRule" json:"domestic_carrier_code_formatting_rule,omitempty"`
+	XXX_unrecognized                  []byte  `json:"-"`
 }
 
-func (m *NumberFormat) Reset()         { *m = NumberFormat{} }
-func (m *NumberFormat) String() string { return proto.CompactTextString(m) }
-func (*NumberFormat) ProtoMessage()    {}
+func (m *NumberFormat) Reset()                    { *m = NumberFormat{} }
+func (m *NumberFormat) String() string            { return proto.CompactTextString(m) }
+func (*NumberFormat) ProtoMessage()               {}
+func (*NumberFormat) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
 func (m *NumberFormat) GetPattern() string {
 	if m != nil && m.Pattern != nil {
@@ -81,15 +142,28 @@ func (m *NumberFormat) GetDomesticCarrierCodeFormattingRule() string {
 }
 
 type PhoneNumberDesc struct {
-	NationalNumberPattern *string `protobuf:"bytes,2,opt,name=national_number_pattern" json:"national_number_pattern,omitempty"`
-	PossibleNumberPattern *string `protobuf:"bytes,3,opt,name=possible_number_pattern" json:"possible_number_pattern,omitempty"`
-	ExampleNumber         *string `protobuf:"bytes,6,opt,name=example_number" json:"example_number,omitempty"`
-	XXX_unrecognized      []byte  `json:"-"`
+	// The national_number_pattern is the pattern that a valid national
+	// significant number would match. This specifies information such as its
+	// total length and leading digits.
+	NationalNumberPattern *string `protobuf:"bytes,2,opt,name=national_number_pattern,json=nationalNumberPattern" json:"national_number_pattern,omitempty"`
+	// The possible_number_pattern represents what a potentially valid phone
+	// number for this region may be written as. This is a superset of the
+	// national_number_pattern above and includes numbers that have the area code
+	// omitted. Typically the only restrictions here are in the number of digits.
+	// This could be used to highlight tokens in a text that may be a phone
+	// number, or to quickly prune numbers that could not possibly be a phone
+	// number for this locale.
+	PossibleNumberPattern *string `protobuf:"bytes,3,opt,name=possible_number_pattern,json=possibleNumberPattern" json:"possible_number_pattern,omitempty"`
+	// An example national significant number for the specific type. It should
+	// not contain any formatting information.
+	ExampleNumber    *string `protobuf:"bytes,6,opt,name=example_number,json=exampleNumber" json:"example_number,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
 }
 
-func (m *PhoneNumberDesc) Reset()         { *m = PhoneNumberDesc{} }
-func (m *PhoneNumberDesc) String() string { return proto.CompactTextString(m) }
-func (*PhoneNumberDesc) ProtoMessage()    {}
+func (m *PhoneNumberDesc) Reset()                    { *m = PhoneNumberDesc{} }
+func (m *PhoneNumberDesc) String() string            { return proto.CompactTextString(m) }
+func (*PhoneNumberDesc) ProtoMessage()               {}
+func (*PhoneNumberDesc) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
 func (m *PhoneNumberDesc) GetNationalNumberPattern() string {
 	if m != nil && m.NationalNumberPattern != nil {
@@ -113,43 +187,158 @@ func (m *PhoneNumberDesc) GetExampleNumber() string {
 }
 
 type PhoneMetadata struct {
-	GeneralDesc                   *PhoneNumberDesc `protobuf:"bytes,1,opt,name=general_desc" json:"general_desc,omitempty"`
-	FixedLine                     *PhoneNumberDesc `protobuf:"bytes,2,opt,name=fixed_line" json:"fixed_line,omitempty"`
-	Mobile                        *PhoneNumberDesc `protobuf:"bytes,3,opt,name=mobile" json:"mobile,omitempty"`
-	TollFree                      *PhoneNumberDesc `protobuf:"bytes,4,opt,name=toll_free" json:"toll_free,omitempty"`
-	PremiumRate                   *PhoneNumberDesc `protobuf:"bytes,5,opt,name=premium_rate" json:"premium_rate,omitempty"`
-	SharedCost                    *PhoneNumberDesc `protobuf:"bytes,6,opt,name=shared_cost" json:"shared_cost,omitempty"`
-	PersonalNumber                *PhoneNumberDesc `protobuf:"bytes,7,opt,name=personal_number" json:"personal_number,omitempty"`
-	Voip                          *PhoneNumberDesc `protobuf:"bytes,8,opt,name=voip" json:"voip,omitempty"`
-	Pager                         *PhoneNumberDesc `protobuf:"bytes,21,opt,name=pager" json:"pager,omitempty"`
-	Uan                           *PhoneNumberDesc `protobuf:"bytes,25,opt,name=uan" json:"uan,omitempty"`
-	Emergency                     *PhoneNumberDesc `protobuf:"bytes,27,opt,name=emergency" json:"emergency,omitempty"`
-	Voicemail                     *PhoneNumberDesc `protobuf:"bytes,28,opt,name=voicemail" json:"voicemail,omitempty"`
-	ShortCode                     *PhoneNumberDesc `protobuf:"bytes,29,opt,name=short_code" json:"short_code,omitempty"`
-	StandardRate                  *PhoneNumberDesc `protobuf:"bytes,30,opt,name=standard_rate" json:"standard_rate,omitempty"`
-	CarrierSpecific               *PhoneNumberDesc `protobuf:"bytes,31,opt,name=carrier_specific" json:"carrier_specific,omitempty"`
-	NoInternationalDialling       *PhoneNumberDesc `protobuf:"bytes,24,opt,name=no_international_dialling" json:"no_international_dialling,omitempty"`
-	Id                            *string          `protobuf:"bytes,9,req,name=id" json:"id,omitempty"`
-	CountryCode                   *int32           `protobuf:"varint,10,opt,name=country_code" json:"country_code,omitempty"`
-	InternationalPrefix           *string          `protobuf:"bytes,11,opt,name=international_prefix" json:"international_prefix,omitempty"`
-	PreferredInternationalPrefix  *string          `protobuf:"bytes,17,opt,name=preferred_international_prefix" json:"preferred_international_prefix,omitempty"`
-	NationalPrefix                *string          `protobuf:"bytes,12,opt,name=national_prefix" json:"national_prefix,omitempty"`
-	PreferredExtnPrefix           *string          `protobuf:"bytes,13,opt,name=preferred_extn_prefix" json:"preferred_extn_prefix,omitempty"`
-	NationalPrefixForParsing      *string          `protobuf:"bytes,15,opt,name=national_prefix_for_parsing" json:"national_prefix_for_parsing,omitempty"`
-	NationalPrefixTransformRule   *string          `protobuf:"bytes,16,opt,name=national_prefix_transform_rule" json:"national_prefix_transform_rule,omitempty"`
-	SameMobileAndFixedLinePattern *bool            `protobuf:"varint,18,opt,name=same_mobile_and_fixed_line_pattern,def=0" json:"same_mobile_and_fixed_line_pattern,omitempty"`
-	NumberFormat                  []*NumberFormat  `protobuf:"bytes,19,rep,name=number_format" json:"number_format,omitempty"`
-	IntlNumberFormat              []*NumberFormat  `protobuf:"bytes,20,rep,name=intl_number_format" json:"intl_number_format,omitempty"`
-	MainCountryForCode            *bool            `protobuf:"varint,22,opt,name=main_country_for_code,def=0" json:"main_country_for_code,omitempty"`
-	LeadingDigits                 *string          `protobuf:"bytes,23,opt,name=leading_digits" json:"leading_digits,omitempty"`
-	LeadingZeroPossible           *bool            `protobuf:"varint,26,opt,name=leading_zero_possible,def=0" json:"leading_zero_possible,omitempty"`
-	MobileNumberPortableRegion    *bool            `protobuf:"varint,32,opt,name=mobile_number_portable_region,def=0" json:"mobile_number_portable_region,omitempty"`
-	XXX_unrecognized              []byte           `json:"-"`
+	// The general_desc contains information which is a superset of descriptions
+	// for all types of phone numbers. If any element is missing in the
+	// description of a specific type in the XML file, the element will inherit
+	// from its counterpart in the general_desc. Every locale is assumed to have
+	// fixed line and mobile numbers - if these types are missing in the
+	// PhoneNumberMetadata XML file, they will inherit all fields from the
+	// general_desc. For all other types that are generally relevant to normal
+	// phone numbers, if the whole type is missing in the PhoneNumberMetadata XML
+	// file, it will be given a national_number_pattern of "NA" and a
+	// possible_number_pattern of "NA".
+	GeneralDesc     *PhoneNumberDesc `protobuf:"bytes,1,opt,name=general_desc,json=generalDesc" json:"general_desc,omitempty"`
+	FixedLine       *PhoneNumberDesc `protobuf:"bytes,2,opt,name=fixed_line,json=fixedLine" json:"fixed_line,omitempty"`
+	Mobile          *PhoneNumberDesc `protobuf:"bytes,3,opt,name=mobile" json:"mobile,omitempty"`
+	TollFree        *PhoneNumberDesc `protobuf:"bytes,4,opt,name=toll_free,json=tollFree" json:"toll_free,omitempty"`
+	PremiumRate     *PhoneNumberDesc `protobuf:"bytes,5,opt,name=premium_rate,json=premiumRate" json:"premium_rate,omitempty"`
+	SharedCost      *PhoneNumberDesc `protobuf:"bytes,6,opt,name=shared_cost,json=sharedCost" json:"shared_cost,omitempty"`
+	PersonalNumber  *PhoneNumberDesc `protobuf:"bytes,7,opt,name=personal_number,json=personalNumber" json:"personal_number,omitempty"`
+	Voip            *PhoneNumberDesc `protobuf:"bytes,8,opt,name=voip" json:"voip,omitempty"`
+	Pager           *PhoneNumberDesc `protobuf:"bytes,21,opt,name=pager" json:"pager,omitempty"`
+	Uan             *PhoneNumberDesc `protobuf:"bytes,25,opt,name=uan" json:"uan,omitempty"`
+	Emergency       *PhoneNumberDesc `protobuf:"bytes,27,opt,name=emergency" json:"emergency,omitempty"`
+	Voicemail       *PhoneNumberDesc `protobuf:"bytes,28,opt,name=voicemail" json:"voicemail,omitempty"`
+	ShortCode       *PhoneNumberDesc `protobuf:"bytes,29,opt,name=short_code,json=shortCode" json:"short_code,omitempty"`
+	StandardRate    *PhoneNumberDesc `protobuf:"bytes,30,opt,name=standard_rate,json=standardRate" json:"standard_rate,omitempty"`
+	CarrierSpecific *PhoneNumberDesc `protobuf:"bytes,31,opt,name=carrier_specific,json=carrierSpecific" json:"carrier_specific,omitempty"`
+	// The rules here distinguish the numbers that are only able to be dialled
+	// nationally.
+	NoInternationalDialling *PhoneNumberDesc `protobuf:"bytes,24,opt,name=no_international_dialling,json=noInternationalDialling" json:"no_international_dialling,omitempty"`
+	// The ISO 3166-1 alpha-2 representation of a country/region, with the
+	// exception of "country calling codes" used for non-geographical entities,
+	// such as Universal International Toll Free Number (+800). These are all
+	// given the ID "001", since this is the numeric region code for the world
+	// according to UN M.49: http://en.wikipedia.org/wiki/UN_M.49
+	Id *string `protobuf:"bytes,9,req,name=id" json:"id,omitempty"`
+	// The country calling code that one would dial from overseas when trying to
+	// dial a phone number in this country. For example, this would be "64" for
+	// New Zealand.
+	CountryCode *int32 `protobuf:"varint,10,opt,name=country_code,json=countryCode" json:"country_code,omitempty"`
+	// The international_prefix of country A is the number that needs to be
+	// dialled from country A to another country (country B). This is followed
+	// by the country code for country B. Note that some countries may have more
+	// than one international prefix, and for those cases, a regular expression
+	// matching the international prefixes will be stored in this field.
+	InternationalPrefix *string `protobuf:"bytes,11,opt,name=international_prefix,json=internationalPrefix" json:"international_prefix,omitempty"`
+	// If more than one international prefix is present, a preferred prefix can
+	// be specified here for out-of-country formatting purposes. If this field is
+	// not present, and multiple international prefixes are present, then "+"
+	// will be used instead.
+	PreferredInternationalPrefix *string `protobuf:"bytes,17,opt,name=preferred_international_prefix,json=preferredInternationalPrefix" json:"preferred_international_prefix,omitempty"`
+	// The national prefix of country A is the number that needs to be dialled
+	// before the national significant number when dialling internally. This
+	// would not be dialled when dialling internationally. For example, in New
+	// Zealand, the number that would be locally dialled as 09 345 3456 would be
+	// dialled from overseas as +64 9 345 3456. In this case, 0 is the national
+	// prefix.
+	NationalPrefix *string `protobuf:"bytes,12,opt,name=national_prefix,json=nationalPrefix" json:"national_prefix,omitempty"`
+	// The preferred prefix when specifying an extension in this country. This is
+	// used for formatting only, and if this is not specified, a suitable default
+	// should be used instead. For example, if you wanted extensions to be
+	// formatted in the following way:
+	// 1 (365) 345 445 ext. 2345
+	// " ext. "  should be the preferred extension prefix.
+	PreferredExtnPrefix *string `protobuf:"bytes,13,opt,name=preferred_extn_prefix,json=preferredExtnPrefix" json:"preferred_extn_prefix,omitempty"`
+	// This field is used for cases where the national prefix of a country
+	// contains a carrier selection code, and is written in the form of a
+	// regular expression. For example, to dial the number 2222-2222 in
+	// Fortaleza, Brazil (area code 85) using the long distance carrier Oi
+	// (selection code 31), one would dial 0 31 85 2222 2222. Assuming the
+	// only other possible carrier selection code is 32, the field will
+	// contain "03[12]".
+	//
+	// When it is missing from the XML file, this field inherits the value of
+	// national_prefix, if that is present.
+	NationalPrefixForParsing *string `protobuf:"bytes,15,opt,name=national_prefix_for_parsing,json=nationalPrefixForParsing" json:"national_prefix_for_parsing,omitempty"`
+	// This field is only populated and used under very rare situations.
+	// For example, mobile numbers in Argentina are written in two completely
+	// different ways when dialed in-country and out-of-country
+	// (e.g. 0343 15 555 1212 is exactly the same number as +54 9 343 555 1212).
+	// This field is used together with national_prefix_for_parsing to transform
+	// the number into a particular representation for storing in the phonenumber
+	// proto buffer in those rare cases.
+	NationalPrefixTransformRule *string `protobuf:"bytes,16,opt,name=national_prefix_transform_rule,json=nationalPrefixTransformRule" json:"national_prefix_transform_rule,omitempty"`
+	// Specifies whether the mobile and fixed-line patterns are the same or not.
+	// This is used to speed up determining phone number type in countries where
+	// these two types of phone numbers can never be distinguished.
+	SameMobileAndFixedLinePattern *bool `protobuf:"varint,18,opt,name=same_mobile_and_fixed_line_pattern,json=sameMobileAndFixedLinePattern,def=0" json:"same_mobile_and_fixed_line_pattern,omitempty"`
+	// Note that the number format here is used for formatting only, not parsing.
+	// Hence all the varied ways a user *may* write a number need not be recorded
+	// - just the ideal way we would like to format it for them. When this element
+	// is absent, the national significant number will be formatted as a whole
+	// without any formatting applied.
+	NumberFormat []*NumberFormat `protobuf:"bytes,19,rep,name=number_format,json=numberFormat" json:"number_format,omitempty"`
+	// This field is populated only when the national significant number is
+	// formatted differently when it forms part of the INTERNATIONAL format
+	// and NATIONAL format. A case in point is mobile numbers in Argentina:
+	// The number, which would be written in INTERNATIONAL format as
+	// +54 9 343 555 1212, will be written as 0343 15 555 1212 for NATIONAL
+	// format. In this case, the prefix 9 is inserted when dialling from
+	// overseas, but otherwise the prefix 0 and the carrier selection code
+	// 15 (inserted after the area code of 343) is used.
+	// Note: this field is populated by setting a value for <intlFormat> inside
+	// the <numberFormat> tag in the XML file. If <intlFormat> is not set then it
+	// defaults to the same value as the <format> tag.
+	//
+	// Examples:
+	//   To set the <intlFormat> to a different value than the <format>:
+	//     <numberFormat pattern=....>
+	//       <format>$1 $2 $3</format>
+	//       <intlFormat>$1-$2-$3</intlFormat>
+	//     </numberFormat>
+	//
+	//   To have a format only used for national formatting, set <intlFormat> to
+	//   "NA":
+	//     <numberFormat pattern=....>
+	//       <format>$1 $2 $3</format>
+	//       <intlFormat>NA</intlFormat>
+	//     </numberFormat>
+	IntlNumberFormat []*NumberFormat `protobuf:"bytes,20,rep,name=intl_number_format,json=intlNumberFormat" json:"intl_number_format,omitempty"`
+	// This field is set when this country is considered to be the main country
+	// for a calling code. It may not be set by more than one country with the
+	// same calling code, and it should not be set by countries with a unique
+	// calling code. This can be used to indicate that "GB" is the main country
+	// for the calling code "44" for example, rather than Jersey or the Isle of
+	// Man.
+	MainCountryForCode *bool `protobuf:"varint,22,opt,name=main_country_for_code,json=mainCountryForCode,def=0" json:"main_country_for_code,omitempty"`
+	// This field is populated only for countries or regions that share a country
+	// calling code. If a number matches this pattern, it could belong to this
+	// region. This is not intended as a replacement for IsValidForRegion, and
+	// does not mean the number must come from this region (for example, 800
+	// numbers are valid for all NANPA countries.) This field should be a regular
+	// expression of the expected prefix match.
+	LeadingDigits *string `protobuf:"bytes,23,opt,name=leading_digits,json=leadingDigits" json:"leading_digits,omitempty"`
+	// The leading zero in a phone number is meaningful in some countries (e.g.
+	// Italy). This means they cannot be dropped from the national number when
+	// converting into international format. If leading zeros are possible for
+	// valid international numbers for this region/country then set this to true.
+	// This only needs to be set for the region that is the main_country_for_code
+	// and all regions associated with that calling code will use the same
+	// setting.
+	LeadingZeroPossible *bool `protobuf:"varint,26,opt,name=leading_zero_possible,json=leadingZeroPossible,def=0" json:"leading_zero_possible,omitempty"`
+	// This field is set when this country has implemented mobile number
+	// portability. This means that transferring mobile numbers between carriers
+	// is allowed. A consequence of this is that phone prefix to carrier mapping
+	// is less reliable.
+	MobileNumberPortableRegion *bool  `protobuf:"varint,32,opt,name=mobile_number_portable_region,json=mobileNumberPortableRegion,def=0" json:"mobile_number_portable_region,omitempty"`
+	XXX_unrecognized           []byte `json:"-"`
 }
 
-func (m *PhoneMetadata) Reset()         { *m = PhoneMetadata{} }
-func (m *PhoneMetadata) String() string { return proto.CompactTextString(m) }
-func (*PhoneMetadata) ProtoMessage()    {}
+func (m *PhoneMetadata) Reset()                    { *m = PhoneMetadata{} }
+func (m *PhoneMetadata) String() string            { return proto.CompactTextString(m) }
+func (*PhoneMetadata) ProtoMessage()               {}
+func (*PhoneMetadata) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
 const Default_PhoneMetadata_SameMobileAndFixedLinePattern bool = false
 const Default_PhoneMetadata_MainCountryForCode bool = false
@@ -378,9 +567,10 @@ type PhoneMetadataCollection struct {
 	XXX_unrecognized []byte           `json:"-"`
 }
 
-func (m *PhoneMetadataCollection) Reset()         { *m = PhoneMetadataCollection{} }
-func (m *PhoneMetadataCollection) String() string { return proto.CompactTextString(m) }
-func (*PhoneMetadataCollection) ProtoMessage()    {}
+func (m *PhoneMetadataCollection) Reset()                    { *m = PhoneMetadataCollection{} }
+func (m *PhoneMetadataCollection) String() string            { return proto.CompactTextString(m) }
+func (*PhoneMetadataCollection) ProtoMessage()               {}
+func (*PhoneMetadataCollection) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
 func (m *PhoneMetadataCollection) GetMetadata() []*PhoneMetadata {
 	if m != nil {
@@ -390,4 +580,74 @@ func (m *PhoneMetadataCollection) GetMetadata() []*PhoneMetadata {
 }
 
 func init() {
+	proto.RegisterType((*NumberFormat)(nil), "i18n.phonenumbers.NumberFormat")
+	proto.RegisterType((*PhoneNumberDesc)(nil), "i18n.phonenumbers.PhoneNumberDesc")
+	proto.RegisterType((*PhoneMetadata)(nil), "i18n.phonenumbers.PhoneMetadata")
+	proto.RegisterType((*PhoneMetadataCollection)(nil), "i18n.phonenumbers.PhoneMetadataCollection")
+}
+
+var fileDescriptor0 = []byte{
+	// 978 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x8c, 0x96, 0xdf, 0x6e, 0x1b, 0x45,
+	0x14, 0xc6, 0x95, 0xb8, 0x69, 0xe3, 0x63, 0x27, 0x4e, 0x27, 0x71, 0xb2, 0x6d, 0xfe, 0xb9, 0x16,
+	0x15, 0xb9, 0xb2, 0xd4, 0x08, 0xa1, 0x50, 0x81, 0xa0, 0xd8, 0x0d, 0xad, 0x20, 0x60, 0x2d, 0x88,
+	0x4a, 0x5c, 0xb0, 0x9a, 0xec, 0x8e, 0x9d, 0x91, 0x76, 0x67, 0x56, 0xb3, 0x6b, 0x48, 0x79, 0x22,
+	0x2e, 0x79, 0x2b, 0x5e, 0x83, 0x33, 0xff, 0x36, 0x5e, 0x27, 0x48, 0x7b, 0x67, 0x7b, 0xbe, 0xdf,
+	0xb7, 0xb3, 0x67, 0x8e, 0xcf, 0x37, 0xb0, 0x9b, 0xdf, 0x48, 0xc1, 0x32, 0x56, 0xd2, 0x84, 0x96,
+	0x74, 0x94, 0x2b, 0x59, 0x4a, 0xf2, 0x94, 0xbf, 0xba, 0x10, 0x23, 0xb3, 0x22, 0x16, 0xd9, 0x35,
+	0x53, 0xc5, 0xf0, 0xdf, 0x75, 0xe8, 0xfe, 0x68, 0x3e, 0x5f, 0x4a, 0x95, 0xd1, 0x92, 0x04, 0xf0,
+	0x24, 0xa7, 0x65, 0xc9, 0x94, 0x08, 0xd6, 0x06, 0xeb, 0x67, 0xed, 0xd0, 0x7f, 0x25, 0xfb, 0xf0,
+	0x78, 0x66, 0x34, 0xc1, 0xba, 0x59, 0x70, 0xdf, 0xc8, 0x67, 0xb0, 0x9f, 0x32, 0x9a, 0x70, 0x31,
+	0x8f, 0x12, 0x3e, 0xe7, 0x65, 0x11, 0x79, 0x83, 0xd6, 0xa0, 0x85, 0xba, 0x3d, 0xb7, 0x3a, 0x31,
+	0x8b, 0x53, 0xe7, 0xf6, 0x16, 0x4e, 0x05, 0x2d, 0xb9, 0x14, 0x34, 0x8d, 0x72, 0xc5, 0x66, 0xfc,
+	0x36, 0xb2, 0x7e, 0xa5, 0x36, 0x52, 0x8b, 0x94, 0x05, 0x8f, 0x06, 0x6b, 0x88, 0x1f, 0x79, 0xd9,
+	0xd4, 0xa8, 0x2e, 0x2b, 0x51, 0x88, 0x1a, 0xf2, 0x2b, 0x9c, 0xad, 0xda, 0xc8, 0xdc, 0x7d, 0xff,
+	0xf3, 0x86, 0x89, 0x25, 0xd3, 0xe0, 0x31, 0xfa, 0x6d, 0x86, 0x9f, 0xd4, 0xfd, 0x7e, 0x72, 0xea,
+	0x0f, 0x28, 0xbe, 0xf3, 0x26, 0x53, 0x78, 0x99, 0xc8, 0x8c, 0x15, 0x25, 0x8f, 0xa3, 0x98, 0x2a,
+	0xc5, 0x99, 0x8a, 0x62, 0x99, 0xb0, 0x7b, 0x9b, 0xdc, 0x30, 0x9b, 0x7c, 0xe1, 0xc5, 0x63, 0xab,
+	0x1d, 0xa3, 0xb4, 0xbe, 0xd3, 0xe1, 0xdf, 0x6b, 0xd0, 0x9b, 0xea, 0xd2, 0xdb, 0x72, 0x4f, 0x58,
+	0x11, 0x93, 0xcf, 0xe1, 0xa0, 0xda, 0xbd, 0x3d, 0x91, 0xaa, 0x76, 0xeb, 0xc6, 0xb7, 0xef, 0x97,
+	0x2d, 0xe4, 0x8b, 0x87, 0x5c, 0x2e, 0x8b, 0x82, 0x5f, 0xa7, 0x6c, 0x95, 0x6b, 0x59, 0xce, 0x2f,
+	0xd7, 0xb9, 0x97, 0xb0, 0xcd, 0x6e, 0x69, 0x96, 0x57, 0x98, 0xa9, 0x49, 0x3b, 0xdc, 0x72, 0xbf,
+	0x5a, 0xf5, 0xf0, 0x9f, 0x1e, 0x6c, 0x99, 0xad, 0x5e, 0xb9, 0xfe, 0xc1, 0xd3, 0xea, 0xce, 0x99,
+	0x60, 0x0a, 0xf7, 0x99, 0xe0, 0xc6, 0xb1, 0x35, 0xd6, 0xce, 0x3a, 0xe7, 0xc3, 0xd1, 0xbd, 0x86,
+	0x1a, 0xad, 0xbc, 0x62, 0xd8, 0x71, 0x9c, 0x79, 0xdf, 0x37, 0x00, 0x58, 0x72, 0x96, 0x44, 0x29,
+	0x17, 0xcc, 0xbc, 0x62, 0x33, 0x93, 0xb6, 0xa1, 0x7e, 0x40, 0x88, 0xbc, 0x86, 0xc7, 0x99, 0xbc,
+	0xe6, 0x58, 0xf9, 0x56, 0x63, 0xdc, 0x11, 0xe4, 0x6b, 0x68, 0x97, 0x32, 0x4d, 0xa3, 0x99, 0x62,
+	0xb6, 0xbb, 0x9a, 0xe1, 0x9b, 0x1a, 0xba, 0x44, 0x46, 0x97, 0x01, 0x9b, 0x2c, 0xe3, 0x8b, 0x2c,
+	0x52, 0xb4, 0xb4, 0x87, 0xdf, 0xb0, 0x0c, 0x8e, 0x0b, 0x11, 0x23, 0x63, 0xe8, 0x14, 0x37, 0x54,
+	0x61, 0x1d, 0x62, 0x59, 0x94, 0xe6, 0x0c, 0x9a, 0xb9, 0x80, 0xc5, 0xc6, 0x48, 0x91, 0xef, 0xa1,
+	0x97, 0xa3, 0x66, 0xa9, 0x77, 0x82, 0x27, 0x8d, 0x8d, 0xb6, 0x3d, 0x6a, 0x7f, 0xc3, 0x86, 0x7a,
+	0xf4, 0x87, 0xe4, 0x79, 0xb0, 0xd9, 0xd8, 0xc1, 0xe8, 0xc9, 0x05, 0x6c, 0xe4, 0x74, 0x8e, 0x8f,
+	0xee, 0x37, 0x06, 0x2d, 0x80, 0x53, 0xa3, 0xb5, 0xa0, 0x22, 0x78, 0xd6, 0x98, 0xd3, 0x72, 0xf2,
+	0x0d, 0xb4, 0x71, 0xa8, 0x29, 0xec, 0xa9, 0xf8, 0x63, 0x70, 0xd8, 0xbc, 0x7f, 0x2a, 0x48, 0x3b,
+	0xe0, 0xce, 0x63, 0x96, 0x51, 0x9e, 0x06, 0x47, 0xcd, 0x1d, 0x2a, 0x48, 0x37, 0x71, 0x71, 0x23,
+	0x55, 0x69, 0xe6, 0x41, 0x70, 0xdc, 0xdc, 0xc2, 0x50, 0x7a, 0x32, 0x90, 0xef, 0x60, 0xab, 0x28,
+	0xa9, 0x48, 0xa8, 0x4a, 0x6c, 0x23, 0x9d, 0x34, 0x76, 0xe9, 0x7a, 0xd0, 0x74, 0xd2, 0x15, 0xec,
+	0xf8, 0xe9, 0x54, 0xe4, 0x2c, 0xe6, 0x33, 0x1e, 0x07, 0xa7, 0x8d, 0xbd, 0x7a, 0x8e, 0xfd, 0xd9,
+	0xa1, 0xe4, 0x77, 0x78, 0x26, 0x64, 0xc4, 0x85, 0x1e, 0x16, 0x7e, 0x2e, 0x25, 0x9c, 0xa6, 0xa9,
+	0x1e, 0x9f, 0x41, 0x63, 0xdf, 0x03, 0x21, 0xdf, 0x2f, 0x7b, 0x4c, 0x9c, 0x05, 0xd9, 0x86, 0x75,
+	0x9e, 0x04, 0x6d, 0x13, 0x1f, 0xf8, 0x89, 0xbc, 0x80, 0x6e, 0x2c, 0x17, 0xa2, 0x54, 0x1f, 0x6d,
+	0x31, 0x01, 0x1f, 0xb1, 0x11, 0x76, 0xdc, 0x6f, 0xa6, 0x54, 0xaf, 0x60, 0xaf, 0xbe, 0x1f, 0x3b,
+	0xe5, 0x83, 0x8e, 0x19, 0x5c, 0xbb, 0xb5, 0x35, 0x3b, 0xd1, 0xc9, 0x04, 0x4e, 0xb4, 0x88, 0x29,
+	0xfd, 0x0f, 0x7b, 0x10, 0x7e, 0x6a, 0x93, 0xa5, 0x52, 0xbd, 0x7f, 0xc0, 0xe5, 0x53, 0xe8, 0xad,
+	0x62, 0x5d, 0x83, 0x6d, 0xaf, 0x08, 0xcf, 0xa1, 0x7f, 0xf7, 0x38, 0x76, 0x5b, 0x0a, 0x2f, 0xdf,
+	0xb2, 0x5b, 0xac, 0x16, 0xdf, 0xe2, 0x9a, 0x63, 0xbe, 0x82, 0xc3, 0x07, 0xd2, 0x0f, 0x87, 0xb8,
+	0x2a, 0x74, 0xa9, 0x7b, 0x86, 0x0c, 0xee, 0x25, 0xdf, 0xd4, 0xae, 0xe3, 0x00, 0x39, 0x59, 0xc5,
+	0x4b, 0x45, 0x45, 0xa1, 0xc3, 0xc9, 0xc6, 0xd2, 0x8e, 0x71, 0x38, 0xac, 0x3b, 0xfc, 0xe2, 0x35,
+	0x26, 0x3a, 0xa7, 0x30, 0x2c, 0x68, 0xc6, 0x22, 0x3b, 0x1c, 0x23, 0xec, 0xaa, 0xe8, 0x6e, 0x38,
+	0x57, 0x79, 0x42, 0x74, 0x68, 0xbe, 0xde, 0x98, 0xd1, 0xb4, 0x60, 0xe1, 0xb1, 0x06, 0xae, 0x8c,
+	0xfe, 0x8d, 0x48, 0x2e, 0xfd, 0x50, 0xf6, 0xf1, 0x32, 0x81, 0x2d, 0x97, 0x46, 0xee, 0xa2, 0xb0,
+	0x8b, 0x17, 0x80, 0xce, 0xf9, 0xe9, 0x03, 0x2d, 0xb3, 0x7c, 0xe7, 0x08, 0xbb, 0x62, 0xf9, 0x06,
+	0x72, 0x05, 0x04, 0x0f, 0xad, 0x0a, 0x44, 0x67, 0xb5, 0xd7, 0xcc, 0x6a, 0x47, 0xa3, 0xb5, 0x0b,
+	0xcd, 0x05, 0xf4, 0xf1, 0x6f, 0x2b, 0x22, 0xdf, 0x68, 0xba, 0xce, 0xa6, 0xd9, 0xf6, 0x97, 0xdf,
+	0x8c, 0x68, 0xcd, 0xd8, 0x4a, 0x10, 0x34, 0xad, 0x87, 0x69, 0x59, 0xbf, 0xd8, 0x04, 0x07, 0x36,
+	0x2d, 0x6b, 0x17, 0x1a, 0xf2, 0x05, 0xf4, 0xbd, 0xec, 0x2f, 0xa6, 0x64, 0xe4, 0xa3, 0x37, 0x78,
+	0xbe, 0xfc, 0x80, 0x5d, 0xa7, 0xf9, 0x0d, 0x25, 0x53, 0xa7, 0x20, 0xef, 0xe0, 0xd8, 0x55, 0xdf,
+	0xa7, 0x38, 0x4e, 0x08, 0xaa, 0x53, 0x5d, 0xb1, 0x39, 0x1e, 0x5c, 0x30, 0x58, 0xb6, 0x78, 0x6e,
+	0xb5, 0x2e, 0xd2, 0x9d, 0x32, 0x34, 0xc2, 0xe1, 0x07, 0x38, 0xa8, 0x25, 0xf6, 0x18, 0x23, 0x8b,
+	0xc5, 0xfa, 0xf0, 0xc9, 0x97, 0xb0, 0xe9, 0xef, 0x81, 0x98, 0xdb, 0xba, 0x8a, 0x83, 0xff, 0xfb,
+	0x0f, 0x7b, 0x3a, 0xac, 0x88, 0x6f, 0x07, 0x70, 0x14, 0xcb, 0x6c, 0x34, 0x97, 0x72, 0x9e, 0xb2,
+	0xfb, 0xdc, 0xbb, 0xd6, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x0c, 0xaa, 0x62, 0x3d, 0x6b, 0x0a,
+	0x00, 0x00,
 }

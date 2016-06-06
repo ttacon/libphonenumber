@@ -513,7 +513,7 @@ func Test_getMetadata(t *testing.T) {
 			cc:         49,
 			i18nPref:   "00",
 			natPref:    "0",
-			numFmtSize: 16,
+			numFmtSize: 18,
 		}, {
 			name:       "AR",
 			id:         "AR",
@@ -752,6 +752,19 @@ func TestLeadingOne(t *testing.T) {
 			num:          "15167706076",
 			region:       "US",
 			expectedE164: "+15167706076",
+			valid:        true,
+		},
+	}
+
+	runTestBatch(t, tests)
+}
+
+func TestNewIndianPhones(t *testing.T) {
+	tests := []testCase{
+		{
+			num:          "7999999543",
+			region:       "IN",
+			expectedE164: "+917999999543",
 			valid:        true,
 		},
 	}

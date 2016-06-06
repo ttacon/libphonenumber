@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/ttacon/builder"
@@ -533,6 +534,9 @@ func (l Leniency) Verify(number *PhoneNumber, candidate string) bool {
 }
 
 var (
+	// golang map is not go routine safe. Sometimes process exiting
+	// because of panic. So adding mutex to synchronize the operation.
+
 	// The set of regions that share country calling code 1.
 	// There are roughly 26 regions.
 	nanpaRegions = make(map[string]struct{})
@@ -553,7 +557,8 @@ var (
 	// A cache for frequently used region-specific regular expressions.
 	// The initial capacity is set to 100 as this seems to be an optimal
 	// value for Android, based on performance measurements.
-	regexCache = make(map[string]*regexp.Regexp)
+	regexCache    = make(map[string]*regexp.Regexp)
+	regCacheMutex sync.RWMutex
 
 	// The set of regions the library supports.
 	// There are roughly 240 of them and we set the initial capacity of
@@ -567,6 +572,69 @@ var (
 )
 
 var ErrEmptyMetadata = errors.New("empty metadata")
+
+func readFromRegexCache(key string) (*regexp.Regexp, bool) {
+	regCacheMutex.RLock()
+	v, ok := regexCache[key]
+	regCacheMutex.RUnlock()
+	return v, ok
+}
+
+func writeToRegexCache(key string, value *regexp.Regexp) {
+	regCacheMutex.Lock()
+	regexCache[key] = value
+	regCacheMutex.Unlock()
+}
+
+func readFromNanpaRegions(key string) (struct{}, bool) {
+	v, ok := nanpaRegions[key]
+	return v, ok
+}
+
+func writeToNanpaRegions(key string, val struct{}) {
+	nanpaRegions[key] = val
+}
+
+func readFromRegionToMetadataMap(key string) (*PhoneMetadata, bool) {
+	v, ok := regionToMetadataMap[key]
+	return v, ok
+}
+
+func writeToRegionToMetadataMap(key string, val *PhoneMetadata) {
+	regionToMetadataMap[key] = val
+}
+
+func readFromCountryCodeToNonGeographicalMetadataMap(key int) (*PhoneMetadata,
+	bool) {
+	v, ok := countryCodeToNonGeographicalMetadataMap[key]
+	return v, ok
+}
+
+func writeToCountryCodeToNonGeographicalMetadataMap(key int, v *PhoneMetadata) {
+	countryCodeToNonGeographicalMetadataMap[key] = v
+}
+
+func readFromSupportedRegions(key string) (struct{}, bool) {
+	v, ok := supportedRegions[key]
+	return v, ok
+}
+
+func writeToSupportedRegions(key string, val struct{}) {
+	supportedRegions[key] = val
+}
+
+func deleteFromSupportedRegions(key string) {
+	delete(supportedRegions, key)
+}
+
+func readFromCCsForNonGeographicalRegion(key int) (struct{}, bool) {
+	v, ok := countryCodesForNonGeographicalRegion[key]
+	return v, ok
+}
+
+func writeToCCsForNonGeographicalRegion(key int, val struct{}) {
+	countryCodesForNonGeographicalRegion[key] = val
+}
 
 func loadMetadataFromFile(
 	regionCode string,
@@ -588,9 +656,10 @@ func loadMetadataFromFile(
 		region := meta.GetId()
 		if region == "001" {
 			// it's a non geographical entity
-			countryCodeToNonGeographicalMetadataMap[int(meta.GetCountryCode())] = meta
+			writeToCountryCodeToNonGeographicalMetadataMap(int(meta.GetCountryCode()),
+				meta)
 		} else {
-			regionToMetadataMap[region] = meta
+			writeToRegionToMetadataMap(region, meta)
 		}
 	}
 	return nil
@@ -945,7 +1014,7 @@ func isNumberGeographical(phoneNumber *PhoneNumber) bool {
 
 // Helper function to check region code is not unknown or null.
 func isValidRegionCode(regionCode string) bool {
-	_, contains := supportedRegions[regionCode]
+	_, contains := readFromSupportedRegions(regionCode)
 	return len(regionCode) != 0 && contains
 }
 
@@ -1734,10 +1803,10 @@ func chooseFormattingPatternForNumber(
 		size := len(leadingDigitsPattern)
 
 		patP := `^(?:` + numFormat.GetPattern() + `)$` // Strictly match
-		m, ok := regexCache[numFormat.GetPattern()]
+		m, ok := readFromRegexCache(numFormat.GetPattern())
 		if !ok {
 			m = regexp.MustCompile(patP)
-			regexCache[patP] = m
+			writeToRegexCache(patP, m)
 		}
 
 		if size == 0 {
@@ -1751,11 +1820,11 @@ func chooseFormattingPatternForNumber(
 
 		// We always use the last leading_digits_pattern, as it is the
 		// most detailed.
-		reg, ok := regexCache[leadingDigitsPattern[size-1]]
+		reg, ok := readFromRegexCache(leadingDigitsPattern[size-1])
 		if !ok {
 			pat := leadingDigitsPattern[size-1]
 			reg = regexp.MustCompile(pat)
-			regexCache[pat] = reg
+			writeToRegexCache(pat, reg)
 		}
 
 		inds := reg.FindStringIndex(nationalNumber)
@@ -1784,11 +1853,11 @@ func formatNsnUsingPatternWithCarrier(
 	carrierCode string) string {
 
 	numberFormatRule := formattingPattern.GetFormat()
-	m, ok := regexCache[formattingPattern.GetPattern()]
+	m, ok := readFromRegexCache(formattingPattern.GetPattern())
 	if !ok {
 		pat := formattingPattern.GetPattern()
-		regexCache[pat] = regexp.MustCompile(pat)
-		m = regexCache[pat]
+		m = regexp.MustCompile(pat)
+		writeToRegexCache(pat, m)
 	}
 
 	formattedNationalNumber := ""
@@ -2028,7 +2097,7 @@ func getMetadataForRegion(regionCode string) *PhoneMetadata {
 	if !isValidRegionCode(regionCode) {
 		return nil
 	}
-	val := regionToMetadataMap[regionCode]
+	val, _ := readFromRegionToMetadataMap(regionCode)
 	return val
 }
 
@@ -2037,7 +2106,7 @@ func getMetadataForNonGeographicalRegion(countryCallingCode int) *PhoneMetadata 
 	if !ok {
 		return nil
 	}
-	val := countryCodeToNonGeographicalMetadataMap[countryCallingCode]
+	val, _ := readFromCountryCodeToNonGeographicalMetadataMap(countryCallingCode)
 	return val
 }
 
@@ -2045,20 +2114,20 @@ func isNumberPossibleForDesc(
 	nationalNumber string, numberDesc *PhoneNumberDesc) bool {
 
 	possiblePattern := "^(?:" + numberDesc.GetPossibleNumberPattern() + ")$" // Strictly match
-	pat, ok := regexCache[possiblePattern]
+	pat, ok := readFromRegexCache(possiblePattern)
 	if !ok {
 		pat = regexp.MustCompile(possiblePattern)
-		regexCache[possiblePattern] = pat
+		writeToRegexCache(possiblePattern, pat)
 	}
 	return pat.MatchString(nationalNumber)
 }
 
 func isNumberMatchingDesc(nationalNumber string, numberDesc *PhoneNumberDesc) bool {
 	patP := "^(?:" + numberDesc.GetNationalNumberPattern() + ")$" // Strictly match
-	pat, ok := regexCache[patP]
+	pat, ok := readFromRegexCache(patP)
 	if !ok {
 		pat = regexp.MustCompile(patP)
-		regexCache[patP] = pat
+		writeToRegexCache(patP, pat)
 	}
 	return isNumberPossibleForDesc(nationalNumber, numberDesc) &&
 		pat.MatchString(nationalNumber)
@@ -2136,10 +2205,10 @@ func getRegionCodeForNumberFromRegionList(
 		var metadata *PhoneMetadata = getMetadataForRegion(regionCode)
 		if len(metadata.GetLeadingDigits()) > 0 {
 			patP := "^(?:" + metadata.GetLeadingDigits() + ")" // Non capturing grouping to support OR'ed alternatives (e.g. 555|1[78]|2)
-			pat, ok := regexCache[patP]
+			pat, ok := readFromRegexCache(patP)
 			if !ok {
 				pat = regexp.MustCompile(patP)
-				regexCache[patP] = pat
+				writeToRegexCache(patP, pat)
 			}
 			if pat.MatchString(nationalNumber) {
 				return regionCode
@@ -2224,7 +2293,7 @@ func GetNddPrefixForRegion(regionCode string, stripNonDigits bool) string {
 // Checks if this is a region under the North American Numbering Plan
 // Administration (NANPA).
 func IsNANPACountry(regionCode string) bool {
-	_, ok := nanpaRegions[regionCode]
+	_, ok := readFromNanpaRegions(regionCode)
 	return ok
 }
 
@@ -2288,11 +2357,11 @@ func isShorterThanPossibleNormalNumber(
 	regionMetadata *PhoneMetadata,
 	number string) bool {
 
-	pat, ok := regexCache[regionMetadata.GetGeneralDesc().GetPossibleNumberPattern()]
+	pat, ok := readFromRegexCache(regionMetadata.GetGeneralDesc().GetPossibleNumberPattern())
 	if !ok {
 		patP := regionMetadata.GetGeneralDesc().GetPossibleNumberPattern()
 		pat = regexp.MustCompile(patP)
-		regexCache[patP] = pat
+		writeToRegexCache(patP, pat)
 	}
 	return testNumberLengthAgainstPattern(pat, number) == TOO_SHORT
 }
@@ -2343,11 +2412,11 @@ func IsPossibleNumberWithReason(number *PhoneNumber) ValidationResult {
 			return IS_POSSIBLE
 		}
 	}
-	pat, ok := regexCache[generalNumDesc.GetPossibleNumberPattern()]
+	pat, ok := readFromRegexCache(generalNumDesc.GetPossibleNumberPattern())
 	if !ok {
 		patP := generalNumDesc.GetPossibleNumberPattern()
-		regexCache[patP] = regexp.MustCompile(patP)
-		pat = regexCache[patP]
+		pat = regexp.MustCompile(patP)
+		writeToRegexCache(patP, pat)
 	}
 	return testNumberLengthAgainstPattern(pat, nationalNumber)
 }
@@ -2498,21 +2567,21 @@ func maybeExtractCountryCode(
 					normalizedNumber[len(defaultCountryCodeString):])
 				generalDesc            = defaultRegionMetadata.GetGeneralDesc()
 				patP                   = `^(?:` + generalDesc.GetNationalNumberPattern() + `)$` // Strictly match
-				validNumberPattern, ok = regexCache[patP]
+				validNumberPattern, ok = readFromRegexCache(patP)
 			)
 			if !ok {
 				validNumberPattern = regexp.MustCompile(patP)
-				regexCache[patP] = validNumberPattern
+				writeToRegexCache(patP, validNumberPattern)
 			}
 			maybeStripNationalPrefixAndCarrierCode(
 				potentialNationalNumber,
 				defaultRegionMetadata,
 				builder.NewBuilder(nil) /* Don't need the carrier code */)
-			possibleNumberPattern, ok := regexCache[generalDesc.GetPossibleNumberPattern()]
+			possibleNumberPattern, ok := readFromRegexCache(generalDesc.GetPossibleNumberPattern())
 			if !ok {
 				pat := generalDesc.GetPossibleNumberPattern()
 				possibleNumberPattern = regexp.MustCompile(pat)
-				regexCache[pat] = possibleNumberPattern
+				writeToRegexCache(pat, possibleNumberPattern)
 			}
 			// If the number was not valid before but is valid now, or
 			// if it was too long before, we consider the number with
@@ -2582,11 +2651,11 @@ func maybeStripInternationalPrefixAndNormalize(
 	}
 
 	// Attempt to parse the first digits as an international prefix.
-	iddPattern, ok := regexCache[possibleIddPrefix]
+	iddPattern, ok := readFromRegexCache(possibleIddPrefix)
 	if !ok {
 		pat := possibleIddPrefix
 		iddPattern = regexp.MustCompile(pat)
-		regexCache[pat] = iddPattern
+		writeToRegexCache(pat, iddPattern)
 	}
 	number.ResetWithString(normalize(string(numBytes)))
 	if parsePrefixAsIdd(iddPattern, number) {
@@ -2610,19 +2679,19 @@ func maybeStripNationalPrefixAndCarrierCode(
 	}
 	possibleNationalPrefix = "^(?:" + possibleNationalPrefix + ")" // Strictly match from string start
 	// Attempt to parse the first digits as a national prefix.
-	prefixMatcher, ok := regexCache[possibleNationalPrefix]
+	prefixMatcher, ok := readFromRegexCache(possibleNationalPrefix)
 	if !ok {
 		pat := possibleNationalPrefix
 		prefixMatcher = regexp.MustCompile(pat)
-		regexCache[pat] = prefixMatcher
+		writeToRegexCache(pat, prefixMatcher)
 	}
 	if prefixMatcher.MatchString(number.String()) {
 		natRulePattern := "^(?:" + metadata.GetGeneralDesc().GetNationalNumberPattern() + ")$" // Strictly match
 		nationalNumberRule, ok :=
-			regexCache[natRulePattern]
+			readFromRegexCache(natRulePattern)
 		if !ok {
 			nationalNumberRule = regexp.MustCompile(natRulePattern)
-			regexCache[natRulePattern] = nationalNumberRule
+			writeToRegexCache(natRulePattern, nationalNumberRule)
 		}
 		// Check if the original number is viable.
 		isViableOriginalNumber := nationalNumberRule.Match(number.Bytes())
@@ -3191,12 +3260,12 @@ func init() {
 		if len(regionCodes) == 1 && REGION_CODE_FOR_NON_GEO_ENTITY == regionCodes[0] {
 			// This is the subset of all country codes that map to the
 			// non-geo entity region code.
-			countryCodesForNonGeographicalRegion[eKey] = struct{}{}
+			writeToCCsForNonGeographicalRegion(eKey, struct{}{})
 		} else {
 			// The supported regions set does not include the "001"
 			// non-geo entity region code.
 			for _, val := range regionCodes {
-				supportedRegions[val] = struct{}{}
+				writeToSupportedRegions(val, struct{}{})
 			}
 		}
 	}
@@ -3205,9 +3274,9 @@ func init() {
 	// entity alongside normal regions (which is wrong). If we discover
 	// this, remove the non-geo entity from the set of supported regions
 	// and log (or not log).
-	delete(supportedRegions, REGION_CODE_FOR_NON_GEO_ENTITY)
+	deleteFromSupportedRegions(REGION_CODE_FOR_NON_GEO_ENTITY)
 
 	for _, val := range CountryCodeToRegion[NANPA_COUNTRY_CODE] {
-		nanpaRegions[val] = struct{}{}
+		writeToNanpaRegions(val, struct{}{})
 	}
 }
