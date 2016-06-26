@@ -15,19 +15,19 @@ import (
 )
 
 const (
-	// The minimum and maximum length of the national significant number.
+	// MIN_LENGTH_FOR_NSN is the minimum and maximum length of the national significant number.
 	MIN_LENGTH_FOR_NSN = 2
-	// The ITU says the maximum length should be 15, but we have
+	// MAX_LENGTH_FOR_NSN: The ITU says the maximum length should be 15, but we have
 	// found longer numbers in Germany.
 	MAX_LENGTH_FOR_NSN = 17
-	// The maximum length of the country calling code.
+	// MAX_LENGTH_COUNTRY_CODE is the maximum length of the country calling code.
 	MAX_LENGTH_COUNTRY_CODE = 3
-	// We don't allow input strings for parsing to be longer than 250 chars.
+	// MAX_INPUT_STRING_LENGTH caps input strings for parsing at 250 chars.
 	// This prevents malicious input from overflowing the regular-expression
 	// engine.
 	MAX_INPUT_STRING_LENGTH = 250
 
-	// Region-code for the unknown region.
+	// UNKNOWN_REGION is the region-code for the unknown region.
 	UNKNOWN_REGION = "ZZ"
 
 	NANPA_COUNTRY_CODE = 1
@@ -2701,7 +2701,7 @@ func maybeStripNationalPrefixAndCarrierCode(
 		// remove the national prefix.
 		groups := prefixMatcher.FindSubmatchIndex(number.Bytes())
 		numOfGroups := len(groups)/2 - 1 // groups is a list of index pairs, idx0,idx1 defines the whole match, idx2+ submatches.
-		// Substract one to ignore group(0) in count
+		// Subtract one to ignore group(0) in count
 		transformRule := metadata.GetNationalPrefixTransformRule()
 		if len(transformRule) == 0 || groups[numOfGroups*2] < 0 { // Negative idx means subgroup did not match
 			// If the original number was viable, and the resultant number
