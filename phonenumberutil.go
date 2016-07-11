@@ -63,6 +63,9 @@ const (
 	// and lower case.
 	VALID_ALPHA = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	PLUS_CHARS  = "+\uFF0B"
+
+	// This is defined by ICU as the unknown time zone.
+	UNKNOWN_TIMEZONE = "Etc/Unknown"
 )
 
 var (
@@ -565,7 +568,7 @@ var (
 	// the HashSet to 320 to offer a load factor of roughly 0.75.
 	supportedRegions = make(map[string]struct{})
 
-	// The set of county calling codes that ma`p to the non-geo entity
+	// The set of county calling codes that map to the non-geo entity
 	// region ("001"). This set currently contains < 12 elements so the
 	// default capacity of 16 (load factor=0.75) is fine.
 	countryCodesForNonGeographicalRegion = make(map[int]struct{})
@@ -656,8 +659,10 @@ func loadMetadataFromFile(
 		region := meta.GetId()
 		if region == "001" {
 			// it's a non geographical entity
-			writeToCountryCodeToNonGeographicalMetadataMap(int(meta.GetCountryCode()),
-				meta)
+			writeToCountryCodeToNonGeographicalMetadataMap(
+				int(meta.GetCountryCode()),
+				meta,
+			)
 		} else {
 			writeToRegionToMetadataMap(region, meta)
 		}
