@@ -2341,14 +2341,13 @@ func testNumberLengthAgainstPattern(
 	number string) ValidationResult {
 
 	inds := numberPattern.FindStringIndex(number)
-	if len(inds) > 0 && inds[0] == 0 && inds[1] == len(number) {
+	if len(inds) > 0 && inds[0] == 0 { // Match from the start
 		if inds[1] == len(number) { // Exact match
 			return IS_POSSIBLE
 		}
 		return TOO_LONG // Matches input start but not end
 	}
-
-	return TOO_SHORT // Does not match input start
+	return TOO_SHORT
 }
 
 // Helper method to check whether a number is too short to be a regular
