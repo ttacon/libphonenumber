@@ -2347,7 +2347,8 @@ func testNumberLengthAgainstPattern(
 		}
 		return TOO_LONG // Matches input start but not end
 	}
-	return TOO_SHORT
+
+	return TOO_SHORT // Does not match input start
 }
 
 // Helper method to check whether a number is too short to be a regular
