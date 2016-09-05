@@ -2,6 +2,7 @@ package libphonenumber
 
 import (
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
@@ -43,6 +44,11 @@ func TestParse(t *testing.T) {
 			input:       "1800AWWCUTE",
 			err:         nil,
 			expectedNum: 8002992883,
+			region:      "US",
+		}, {
+			input:       "+1 1951178619",
+			err:         nil,
+			expectedNum: 951178619,
 			region:      "US",
 		},
 	}
@@ -405,6 +411,48 @@ func Test_setItalianLeadinZerosForPhoneNumber(t *testing.T) {
 				i, pNum.GetNumberOfLeadingZeros(), test.numLeadZeros)
 		}
 
+	}
+}
+
+func Test_testNumberLengthAgainstPattern(t *testing.T) {
+	var tests = []struct {
+		pattern  string
+		num      string
+		expected ValidationResult
+	}{
+		{
+			"\\d{7}(?:\\d{3})?",
+			"1234567",
+			IS_POSSIBLE,
+		},
+		{
+			"\\d{7}(?:\\d{3})?",
+			"1234567890",
+			IS_POSSIBLE,
+		},
+		{
+			"\\d{7}(?:\\d{3})?",
+			"12345678",
+			TOO_LONG,
+		},
+		{
+			"\\d{7}(?:\\d{3})?",
+			"123456",
+			TOO_SHORT,
+		},
+		{
+			"\\d{7}(?:\\d{3})?",
+			"abc1234567",
+			TOO_SHORT,
+		},
+	}
+
+	for i, test := range tests {
+		pat := regexp.MustCompile(test.pattern)
+		res := testNumberLengthAgainstPattern(pat, test.num)
+		if res != test.expected {
+			t.Errorf("[test %d] failed: should be %v, got %v", i, test.expected, res)
+		}
 	}
 }
 

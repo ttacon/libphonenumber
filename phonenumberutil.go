@@ -2341,7 +2341,7 @@ func testNumberLengthAgainstPattern(
 	number string) ValidationResult {
 
 	inds := numberPattern.FindStringIndex(number)
-	if len(inds) > 0 && inds[0] == 0 && inds[1] == len(number) {
+	if len(inds) > 0 && inds[0] == 0 { // Match from the start
 		if inds[1] == len(number) { // Exact match
 			return IS_POSSIBLE
 		}
