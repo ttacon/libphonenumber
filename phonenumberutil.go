@@ -2952,9 +2952,10 @@ func parseHelper(
 	if len(normalizedNationalNumber.String()) < MIN_LENGTH_FOR_NSN {
 		return ErrTooShortNSN
 	}
+
 	if regionMetadata != nil {
 		carrierCode := builder.NewBuilder(nil)
-		potentialNationalNumber := builder.NewBuilder(normalizedNationalNumber.Bytes())
+		potentialNationalNumber := builder.NewBuilder([]byte(normalizedNationalNumber.String()))
 		maybeStripNationalPrefixAndCarrierCode(
 			potentialNationalNumber, regionMetadata, carrierCode)
 		// We require that the NSN remaining after stripping the national
