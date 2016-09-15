@@ -2978,10 +2978,8 @@ func parseHelper(
 	if lengthOfNationalNumber > MAX_LENGTH_FOR_NSN {
 		return ErrNumTooLong
 	}
-	if isLeadingZeroPossible(int(phoneNumber.GetCountryCode())) {
-		setItalianLeadingZerosForPhoneNumber(
-			normalizedNationalNumber.String(), phoneNumber)
-	}
+	setItalianLeadingZerosForPhoneNumber(
+		normalizedNationalNumber.String(), phoneNumber)
 	val, _ := strconv.ParseUint(normalizedNationalNumber.String(), 10, 64)
 	phoneNumber.NationalNumber = proto.Uint64(val)
 	return nil
