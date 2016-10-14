@@ -3211,10 +3211,6 @@ func isNumberMatchWithOneNumber(
 		}
 		return isNumberMatchWithNumbers(firstNumber, secondNumberProto)
 	}
-
-	// One or more of the phone numbers we are trying to match is not
-	// a viable phone number.
-	return NOT_A_NUMBER
 }
 
 // Returns true if the number can be dialled from outside the region, or

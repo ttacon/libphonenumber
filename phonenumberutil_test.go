@@ -735,7 +735,7 @@ func runTestBatch(t *testing.T, tests []testCase) {
 	for _, test := range tests {
 		n, err := Parse(test.num, test.region)
 		if err != nil {
-			t.Errorf("Failed to parse number %s: %s", err)
+			t.Errorf("Failed to parse number %s: %s", test.num, err)
 		}
 
 		if IsValidNumberForRegion(n, test.region) != test.valid {
