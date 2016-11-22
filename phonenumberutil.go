@@ -3063,6 +3063,8 @@ func buildNationalNumberForParsing(
 func isNumberMatchWithNumbers(firstNumberIn, secondNumberIn *PhoneNumber) MatchType {
 	// Make copies of the phone number so that the numbers passed in are not edited.
 	var firstNumber, secondNumber *PhoneNumber
+	firstNumber = &PhoneNumber{}
+	secondNumber = &PhoneNumber{}
 	proto.Merge(firstNumber, firstNumberIn)
 	proto.Merge(secondNumber, secondNumberIn)
 	// First clear raw_input, country_code_source and
