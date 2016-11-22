@@ -50,6 +50,11 @@ func TestParse(t *testing.T) {
 			err:         nil,
 			expectedNum: 951178619,
 			region:      "US",
+		}, {
+			input:       "+33 07856952",
+			err:         nil,
+			expectedNum: 7856952,
+			region:      "",
 		},
 	}
 
@@ -356,6 +361,12 @@ func TestFormat(t *testing.T) {
 			region: "US",
 			exp:    "tel:+1-443-123-4567",
 			frmt:   RFC3966,
+		},
+		{
+			in:     "+1 100-083-0033",
+			region: "US",
+			exp:    "+1 000830033",
+			frmt:   INTERNATIONAL,
 		},
 	}
 

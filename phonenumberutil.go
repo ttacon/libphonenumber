@@ -2952,9 +2952,10 @@ func parseHelper(
 	if len(normalizedNationalNumber.String()) < MIN_LENGTH_FOR_NSN {
 		return ErrTooShortNSN
 	}
+
 	if regionMetadata != nil {
 		carrierCode := builder.NewBuilder(nil)
-		potentialNationalNumber := builder.NewBuilder(normalizedNationalNumber.Bytes())
+		potentialNationalNumber := builder.NewBuilder([]byte(normalizedNationalNumber.String()))
 		maybeStripNationalPrefixAndCarrierCode(
 			potentialNationalNumber, regionMetadata, carrierCode)
 		// We require that the NSN remaining after stripping the national
@@ -2977,10 +2978,8 @@ func parseHelper(
 	if lengthOfNationalNumber > MAX_LENGTH_FOR_NSN {
 		return ErrNumTooLong
 	}
-	if isLeadingZeroPossible(int(phoneNumber.GetCountryCode())) {
-		setItalianLeadingZerosForPhoneNumber(
-			normalizedNationalNumber.String(), phoneNumber)
-	}
+	setItalianLeadingZerosForPhoneNumber(
+		normalizedNationalNumber.String(), phoneNumber)
 	val, _ := strconv.ParseUint(normalizedNationalNumber.String(), 10, 64)
 	phoneNumber.NationalNumber = proto.Uint64(val)
 	return nil
