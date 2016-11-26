@@ -6,6 +6,7 @@ golang port of Google's libphonenumber
 [![forthebadge](http://forthebadge.com/badges/no-ragrets.svg)](http://forthebadge.com)
 
 [![Build Status](https://travis-ci.org/ttacon/libphonenumber.svg?branch=master)](https://travis-ci.org/ttacon/libphonenumber)
+[![GoDoc](https://godoc.org/github.com/ttacon/libphonenumber?status.png)](https://godoc.org/github.com/ttacon/libphonenumber)
 
 WARNING
 =======
