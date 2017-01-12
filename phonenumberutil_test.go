@@ -362,6 +362,12 @@ func TestFormat(t *testing.T) {
 			exp:    "tel:+1-443-123-4567",
 			frmt:   RFC3966,
 		},
+		{
+			in:     "+1 100-083-0033",
+			region: "US",
+			exp:    "+1 000830033",
+			frmt:   INTERNATIONAL,
+		},
 	}
 
 	for i, test := range tests {
@@ -740,7 +746,7 @@ func runTestBatch(t *testing.T, tests []testCase) {
 	for _, test := range tests {
 		n, err := Parse(test.num, test.region)
 		if err != nil {
-			t.Errorf("Failed to parse number %s: %s", err)
+			t.Errorf("Failed to parse number %s: %s", test.num, err)
 		}
 
 		if IsValidNumberForRegion(n, test.region) != test.valid {

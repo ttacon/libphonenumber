@@ -2980,10 +2980,8 @@ func parseHelper(
 	if lengthOfNationalNumber > MAX_LENGTH_FOR_NSN {
 		return ErrNumTooLong
 	}
-	if isLeadingZeroPossible(int(phoneNumber.GetCountryCode())) {
-		setItalianLeadingZerosForPhoneNumber(
-			normalizedNationalNumber.String(), phoneNumber)
-	}
+	setItalianLeadingZerosForPhoneNumber(
+		normalizedNationalNumber.String(), phoneNumber)
 	val, _ := strconv.ParseUint(normalizedNationalNumber.String(), 10, 64)
 	phoneNumber.NationalNumber = proto.Uint64(val)
 	return nil
@@ -3066,6 +3064,8 @@ func buildNationalNumberForParsing(
 func isNumberMatchWithNumbers(firstNumberIn, secondNumberIn *PhoneNumber) MatchType {
 	// Make copies of the phone number so that the numbers passed in are not edited.
 	var firstNumber, secondNumber *PhoneNumber
+	firstNumber = &PhoneNumber{}
+	secondNumber = &PhoneNumber{}
 	proto.Merge(firstNumber, firstNumberIn)
 	proto.Merge(secondNumber, secondNumberIn)
 	// First clear raw_input, country_code_source and
@@ -3214,10 +3214,6 @@ func isNumberMatchWithOneNumber(
 		}
 		return isNumberMatchWithNumbers(firstNumber, secondNumberProto)
 	}
-
-	// One or more of the phone numbers we are trying to match is not
-	// a viable phone number.
-	return NOT_A_NUMBER
 }
 
 // Returns true if the number can be dialled from outside the region, or
