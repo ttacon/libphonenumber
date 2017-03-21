@@ -3,7 +3,7 @@ libphonenumber
 
 golang port of Google's libphonenumber
 
-[![forthebadge](http://forthebadge.com/badges/no-ragrets.svg)](http://forthebadge.com)
+[![forthebadge](http://forthebadge.com/images/badges/no-ragrets.svg)](http://forthebadge.com)
 
 [![Build Status](https://travis-ci.org/ttacon/libphonenumber.svg?branch=master)](https://travis-ci.org/ttacon/libphonenumber)
 
