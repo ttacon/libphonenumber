@@ -2955,7 +2955,9 @@ func parseHelper(
 
 	if regionMetadata != nil {
 		carrierCode := builder.NewBuilder(nil)
-		potentialNationalNumber := builder.NewBuilder([]byte(normalizedNationalNumber.String()))
+		bufferCopy := make([]byte, normalizedNationalNumber.Len())
+		copy(bufferCopy, normalizedNationalNumber.Bytes())
+		potentialNationalNumber := builder.NewBuilder(bufferCopy)
 		maybeStripNationalPrefixAndCarrierCode(
 			potentialNationalNumber, regionMetadata, carrierCode)
 		// We require that the NSN remaining after stripping the national
