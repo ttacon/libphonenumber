@@ -2,8 +2,6 @@ package libphonenumber
 
 import "strconv"
 
-// TODO(ttacon): do we need to worry about load factor?
-
 const MAX_REGION_CODE_LENGTH = 7
 
 var CountryCodeToTimeZones = map[int][]string{
