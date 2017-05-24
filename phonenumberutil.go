@@ -2115,27 +2115,31 @@ func getMetadataForNonGeographicalRegion(countryCallingCode int) *PhoneMetadata 
 	return val
 }
 
-func isNumberPossibleForDesc(
+func isNumberPossibleLengthForDesc(
 	nationalNumber string, numberDesc *PhoneNumberDesc) bool {
-
-	possiblePattern := "^(?:" + numberDesc.GetPossibleNumberPattern() + ")$" // Strictly match
-	pat, ok := readFromRegexCache(possiblePattern)
-	if !ok {
-		pat = regexp.MustCompile(possiblePattern)
-		writeToRegexCache(possiblePattern, pat)
+	if len(numberDesc.PossibleLength) == 0 {
+		return true
 	}
-	return pat.MatchString(nationalNumber)
+	lenNationalNumber := int32(len(nationalNumber))
+	for _, length := range numberDesc.PossibleLength {
+		if length == lenNationalNumber {
+			return true
+		}
+	}
+	return false
 }
 
 func isNumberMatchingDesc(nationalNumber string, numberDesc *PhoneNumberDesc) bool {
+	if isNumberPossibleLengthForDesc(nationalNumber, numberDesc) == false {
+		return false
+	}
 	patP := "^(?:" + numberDesc.GetNationalNumberPattern() + ")$" // Strictly match
 	pat, ok := readFromRegexCache(patP)
 	if !ok {
 		pat = regexp.MustCompile(patP)
 		writeToRegexCache(patP, pat)
 	}
-	return isNumberPossibleForDesc(nationalNumber, numberDesc) &&
-		pat.MatchString(nationalNumber)
+	return pat.MatchString(nationalNumber)
 
 }
 
