@@ -2366,9 +2366,9 @@ func isShorterThanPossibleNormalNumber(
 	regionMetadata *PhoneMetadata,
 	number string) bool {
 
-	pat, ok := readFromRegexCache(regionMetadata.GetGeneralDesc().GetPossibleNumberPattern())
+	pat, ok := readFromRegexCache(regionMetadata.GetGeneralDesc().GetNationalNumberPattern())
 	if !ok {
-		patP := regionMetadata.GetGeneralDesc().GetPossibleNumberPattern()
+		patP := regionMetadata.GetGeneralDesc().GetNationalNumberPattern()
 		pat = regexp.MustCompile(patP)
 		writeToRegexCache(patP, pat)
 	}
@@ -2421,9 +2421,9 @@ func IsPossibleNumberWithReason(number *PhoneNumber) ValidationResult {
 			return IS_POSSIBLE
 		}
 	}
-	pat, ok := readFromRegexCache(generalNumDesc.GetPossibleNumberPattern())
+	pat, ok := readFromRegexCache(generalNumDesc.GetNationalNumberPattern())
 	if !ok {
-		patP := generalNumDesc.GetPossibleNumberPattern()
+		patP := generalNumDesc.GetNationalNumberPattern()
 		pat = regexp.MustCompile(patP)
 		writeToRegexCache(patP, pat)
 	}
@@ -2586,9 +2586,9 @@ func maybeExtractCountryCode(
 				potentialNationalNumber,
 				defaultRegionMetadata,
 				builder.NewBuilder(nil) /* Don't need the carrier code */)
-			possibleNumberPattern, ok := readFromRegexCache(generalDesc.GetPossibleNumberPattern())
+			possibleNumberPattern, ok := readFromRegexCache(generalDesc.GetNationalNumberPattern())
 			if !ok {
-				pat := generalDesc.GetPossibleNumberPattern()
+				pat := generalDesc.GetNationalNumberPattern()
 				possibleNumberPattern = regexp.MustCompile(pat)
 				writeToRegexCache(pat, possibleNumberPattern)
 			}
