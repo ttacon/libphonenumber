@@ -831,6 +831,12 @@ func TestNewIndianPhones(t *testing.T) {
 			expectedE164: "+917999999543",
 			valid:        true,
 		},
+		{
+			num:          "6290536082",
+			region:       "IN",
+			expectedE164: "+916290536082",
+			valid:        true,
+		},
 	}
 
 	runTestBatch(t, tests)
