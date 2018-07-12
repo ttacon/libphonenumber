@@ -19,4 +19,4 @@ distupdate:
 	rm -rf ./google_libphonenumber
 	git clone --depth 1 https://github.com/googlei18n/libphonenumber.git ./google_libphonenumber/
 
-update: distupdate generate
+update: distupdate generate_proto
