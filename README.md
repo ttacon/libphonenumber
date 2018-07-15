@@ -30,3 +30,23 @@ num, err := libphonenumber.Parse("6502530000", "US")
 // num is a *libphonenumber.PhoneNumber
 formattedNum := libphonenumber.Format(num, libphonenumber.NATIONAL)
 ```
+
+### To get the area code of a number
+```go
+// Parse the number.
+num, err := libphonenumber.Parse("1234567890", "US")
+if err != nil {
+        // Handle error appropriately.
+}
+
+// Get the cleaned number and the length of the area code.
+natSigNumber := libphonenumber.GetNationalSignificantNumber(num)
+geoCodeLength := libphonenumber.GetLengthOfGeographicalAreaCode(num)
+
+// Extract the area code.
+areaCode := ""
+if geoCodeLength > 0 {
+        areaCode = natSigNumber[0:geoCodeLength]
+}
+fmt.Println(areaCode)
+```
