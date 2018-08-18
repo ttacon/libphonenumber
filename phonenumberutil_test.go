@@ -48,7 +48,7 @@ func TestParse(t *testing.T) {
 		}, {
 			input:       "+1 1951178619",
 			err:         nil,
-			expectedNum: 951178619,
+			expectedNum: 1951178619,
 			region:      "US",
 		}, {
 			input:       "+33 07856952",
@@ -365,7 +365,7 @@ func TestFormat(t *testing.T) {
 		{
 			in:     "+1 100-083-0033",
 			region: "US",
-			exp:    "+1 000830033",
+			exp:    "+1 100-083-0033",
 			frmt:   INTERNATIONAL,
 		},
 	}
@@ -707,19 +707,6 @@ func Test_GetExampleNumberForType(t *testing.T) {
 	if GetExampleNumber("UN001") != nil {
 		t.Error("there should not be an example number for UN001 " +
 			"that is retrievable by this method")
-	}
-}
-
-func TestGetExampleNumberForNonGeoEntity(t *testing.T) {
-	if !reflect.DeepEqual(
-		getTestNumber("INTERNATIONAL_TOLL_FREE"),
-		GetExampleNumberForNonGeoEntity(800)) {
-		t.Error("there should be an example 800 number")
-	}
-	if !reflect.DeepEqual(
-		getTestNumber("UNIVERSAL_PREMIUM_RATE"),
-		GetExampleNumberForNonGeoEntity(979)) {
-		t.Error("there should be an example number for 979")
 	}
 }
 
