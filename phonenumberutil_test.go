@@ -605,21 +605,6 @@ func Test_getMetadata(t *testing.T) {
 	}
 }
 
-// func Test_isLeadingZeroPossible(t *testing.T) {
-// 	if !isLeadingZeroPossible(39) {
-// 		t.Error("Leading 0 should be possible in Italy")
-// 	}
-// 	if isLeadingZeroPossible(1) {
-// 		t.Error("Leading 0 should not be possible in the USA")
-// 	}
-// 	if !isLeadingZeroPossible(800) {
-// 		t.Error("Leading 0 should be possible for International toll free")
-// 	}
-// 	if isLeadingZeroPossible(889) {
-// 		t.Error("Leading 0 should not be possible in non-existent region")
-// 	}
-// }
-
 func Test_isNumberGeographical(t *testing.T) {
 	if !isNumberGeographical(getTestNumber("AU_NUMBER")) {
 		t.Error("Australia should be a geographical number")
