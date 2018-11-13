@@ -695,18 +695,18 @@ func Test_GetExampleNumberForType(t *testing.T) {
 	}
 }
 
-// func TestGetExampleNumberForNonGeoEntity(t *testing.T) {
-// 	if !reflect.DeepEqual(
-// 		getTestNumber("INTERNATIONAL_TOLL_FREE"),
-// 		GetExampleNumberForNonGeoEntity(800)) {
-// 		t.Error("there should be an example 800 number")
-// 	}
-// 	if !reflect.DeepEqual(
-// 		getTestNumber("UNIVERSAL_PREMIUM_RATE"),
-// 		GetExampleNumberForNonGeoEntity(979)) {
-// 		t.Error("there should be an example number for 979")
-// 	}
-// }
+func TestGetExampleNumberForNonGeoEntity(t *testing.T) {
+	if !reflect.DeepEqual(
+		getTestNumber("INTERNATIONAL_TOLL_FREE"),
+		GetExampleNumberForNonGeoEntity(800)) {
+		t.Error("there should be an example 800 number")
+	}
+	if !reflect.DeepEqual(
+		getTestNumber("UNIVERSAL_PREMIUM_RATE"),
+		GetExampleNumberForNonGeoEntity(979)) {
+		t.Error("there should be an example number for 979")
+	}
+}
 
 func TestNormalizeDigitsOnly(t *testing.T) {
 	if "03456234" != NormalizeDigitsOnly("034-56&+a#234") {

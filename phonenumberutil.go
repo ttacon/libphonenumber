@@ -1960,7 +1960,12 @@ func GetExampleNumberForNonGeoEntity(countryCallingCode int) *PhoneNumber {
 	if metadata == nil {
 		return nil
 	}
-	var desc *PhoneNumberDesc = metadata.GetGeneralDesc()
+	var desc *PhoneNumberDesc = metadata.GetTollFree()
+
+	if countryCallingCode == 979 {
+		desc = metadata.GetPremiumRate()
+	}
+
 	exNum := desc.GetExampleNumber()
 	if len(exNum) > 0 {
 		num, err := Parse("+"+strconv.Itoa(countryCallingCode)+exNum, "ZZ")
