@@ -5,5 +5,5 @@ go:
   - tip
 
 script: 
-  - go get ./...
+  - dep ensure
   - go test ./...
