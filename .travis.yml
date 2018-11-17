@@ -4,4 +4,7 @@ go:
   - 1.10.x
   - tip
 
-script: go test ./...
+script: 
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+  - dep ensure
+  - go test ./...

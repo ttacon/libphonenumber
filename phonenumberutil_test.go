@@ -48,7 +48,7 @@ func TestParse(t *testing.T) {
 		}, {
 			input:       "+1 1951178619",
 			err:         nil,
-			expectedNum: 951178619,
+			expectedNum: 1951178619,
 			region:      "US",
 		}, {
 			input:       "+33 07856952",
@@ -365,7 +365,7 @@ func TestFormat(t *testing.T) {
 		{
 			in:     "+1 100-083-0033",
 			region: "US",
-			exp:    "+1 000830033",
+			exp:    "+1 1000830033",
 			frmt:   INTERNATIONAL,
 		},
 	}
@@ -602,21 +602,6 @@ func Test_getMetadata(t *testing.T) {
 			t.Errorf("[test %d:numFmt] %d != %d\n",
 				i, len(meta.GetNumberFormat()), test.numFmtSize)
 		}
-	}
-}
-
-func Test_isLeadingZeroPossible(t *testing.T) {
-	if !isLeadingZeroPossible(39) {
-		t.Error("Leading 0 should be possible in Italy")
-	}
-	if isLeadingZeroPossible(1) {
-		t.Error("Leading 0 should not be possible in the USA")
-	}
-	if !isLeadingZeroPossible(800) {
-		t.Error("Leading 0 should be possible for International toll free")
-	}
-	if isLeadingZeroPossible(889) {
-		t.Error("Leading 0 should not be possible in non-existent region")
 	}
 }
 
