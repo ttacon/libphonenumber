@@ -56,6 +56,12 @@ func TestParse(t *testing.T) {
 			expectedNum: 7856952,
 			region:      "",
 		},
+		{
+			input:       "+212701035628",
+			err:         nil,
+			expectedNum: 701035628,
+			region:      "MA",
+		},
 	}
 
 	for i, test := range tests {
@@ -226,6 +232,12 @@ func Test_IsValidNumber(t *testing.T) {
 			err:     nil,
 			isValid: true,
 			region:  "BS",
+		},
+		{
+			input:   "+212701035628",
+			err:     nil,
+			isValid: true,
+			region:  "MA",
 		},
 	}
 
