@@ -236,6 +236,31 @@ func Test_IsValidNumber(t *testing.T) {
 			err:     nil,
 			isValid: true,
 			region:  "CN",
+		}, {
+			input:   "+8619010517228",
+			err:     nil,
+			isValid: true,
+			region:  "CN",
+		}, {
+			input:   "+8619310517228",
+			err:     nil,
+			isValid: true,
+			region:  "CN",
+		}, {
+			input:   "+8614610517228",
+			err:     nil,
+			isValid: true,
+			region:  "CN",
+		}, {
+			input:   "+8614810517228",
+			err:     nil,
+			isValid: true,
+			region:  "CN",
+		}, {
+			input:   "+8614910517228",
+			err:     nil,
+			isValid: true,
+			region:  "CN",
 		},
 	}
 
