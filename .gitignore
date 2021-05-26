@@ -1,3 +1,2 @@
 *.cov
-vendor/
-google_libphonenumber/
+bazel-*
