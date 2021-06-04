@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestParse(t *testing.T) {
@@ -273,8 +273,8 @@ func Test_IsValidNumber(t *testing.T) {
 			continue
 		}
 		if IsValidNumber(num) != test.isValid {
-			t.Errorf("[test %d:validity] failed: %v != %v\n",
-				i, IsValidNumber(num), test.isValid)
+			t.Errorf("[test %d:validity] failed: IsValidNumber(%v) = %v, want %v\n",
+				i, num, IsValidNumber(num), test.isValid)
 		}
 	}
 }
@@ -566,9 +566,9 @@ var testPhoneNumbers = map[string]*PhoneNumber{
 	"UNKNOWN_COUNTRY_CODE_NO_RAW_INPUT": newPhoneNumber(2, 12345),
 }
 
-func newPhoneNumber(cc int, natNum uint64) *PhoneNumber {
+func newPhoneNumber(cc int32, natNum uint64) *PhoneNumber {
 	p := &PhoneNumber{}
-	p.CountryCode = proto.Int(cc)
+	p.CountryCode = proto.Int32(cc)
 	p.NationalNumber = proto.Uint64(natNum)
 	return p
 }
