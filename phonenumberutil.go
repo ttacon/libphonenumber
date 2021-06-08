@@ -2799,6 +2799,9 @@ func checkRegionForParsing(numberToParse, defaultRegion string) bool {
 // possible number. Note that validation of whether the number is actually
 // a valid number for a particular region is not performed. This can be
 // done separately with IsValidNumber().
+// The defaultRegion parameter is used to set a region/country code for
+// numbers without a region prefix. It is ignored if a region prefix is
+// present on numberToParse (+1, +52 etc.)
 func Parse(numberToParse, defaultRegion string) (*PhoneNumber, error) {
 	var phoneNumber *PhoneNumber = &PhoneNumber{}
 	err := ParseToNumber(numberToParse, defaultRegion, phoneNumber)
