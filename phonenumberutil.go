@@ -1412,14 +1412,7 @@ func FormatOutOfCountryCallingNumber(
 	if len(internationalPrefixForFormatting) > 0 {
 		formattedBytes := formattedNumber.Bytes()
 		formattedBytes = append([]byte(" "), formattedBytes...)
-		// we know countryCallingCode is really an int32
-		intBuf := []byte{
-			byte(countryCallingCode >> 24),
-			byte(countryCallingCode >> 16),
-			byte(countryCallingCode >> 8),
-			byte(countryCallingCode),
-		}
-		formattedBytes = append(intBuf, formattedBytes...)
+		formattedBytes = append([]byte(strconv.Itoa(countryCallingCode)), formattedBytes...)
 		formattedBytes = append([]byte(" "), formattedBytes...)
 		formattedBytes = append(
 			[]byte(internationalPrefixForFormatting), formattedBytes...)
