@@ -26,7 +26,7 @@
 
 
 [[constraint]]
-  name = "github.com/golang/protobuf"
+  name = "google.golang.org/protobuf"
   version = "1.0.0"
 
 [[constraint]]
