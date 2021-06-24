@@ -239,6 +239,12 @@ func Test_IsValidNumber(t *testing.T) {
 			isValid: true,
 			region:  "MA",
 		},
+		{
+			input:   "+213562035421",
+			err:     nil,
+			isValid: true,
+			region:  "MA",
+		},
 	}
 
 	for i, test := range tests {
@@ -591,7 +597,7 @@ func Test_getMetadata(t *testing.T) {
 			cc:         54,
 			i18nPref:   "00",
 			natPref:    "0",
-			numFmtSize: 11,
+			numFmtSize: 12,
 		},
 	}
 	for i, test := range tests {
