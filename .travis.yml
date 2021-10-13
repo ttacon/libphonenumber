@@ -5,6 +5,6 @@ go:
   - tip
 
 script: 
-  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-  - dep ensure
+  - go mod tidy
+  - go mod vendor
   - go test ./...
