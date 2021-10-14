@@ -10,7 +10,8 @@ go:
   - "1.16.x"
   - master
 
-script:
-  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-  - dep ensure
+
+script: 
+  - go mod tidy
+  - go mod vendor
   - go test ./...
