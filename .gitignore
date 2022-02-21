@@ -1,3 +1,4 @@
 *.cov
 vendor/
 google_libphonenumber/
+.idea
