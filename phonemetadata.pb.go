@@ -258,10 +258,8 @@ type PhoneMetadata struct {
 	// than one international prefix, and for those cases, a regular expression
 	// matching the international prefixes will be stored in this field.
 	InternationalPrefix *string `protobuf:"bytes,11,opt,name=international_prefix,json=internationalPrefix" json:"international_prefix,omitempty"`
-	// If the international prefix that we want to use when formatting the number
-	// for out-of-country dialling contains non-digit symbols, or there is more
-	// than one international prefix is present, a preferred prefix can be
-	// specified here for out-of-country formatting purposes. If this field is
+	// If more than one international prefix is present, a preferred prefix can
+	// be specified here for out-of-country formatting purposes. If this field is
 	// not present, and multiple international prefixes are present, then "+"
 	// will be used instead.
 	PreferredInternationalPrefix *string `protobuf:"bytes,17,opt,name=preferred_international_prefix,json=preferredInternationalPrefix" json:"preferred_international_prefix,omitempty"`
