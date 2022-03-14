@@ -227,6 +227,12 @@ func Test_IsValidNumber(t *testing.T) {
 			isValid: true,
 			region:  "BS",
 		},
+		{
+			input:   "+96877311286",
+			err:     nil,
+			isValid: true,
+			region:  "OM",
+		},
 	}
 
 	for i, test := range tests {
