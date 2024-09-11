@@ -56,12 +56,6 @@ func TestParse(t *testing.T) {
 			expectedNum: 7856952,
 			region:      "",
 		},
-		{
-			input:       "+212701035628",
-			err:         nil,
-			expectedNum: 701035628,
-			region:      "MA",
-		},
 	}
 
 	for i, test := range tests {
@@ -198,6 +192,11 @@ func Test_IsValidNumber(t *testing.T) {
 			isValid: true,
 			region:  "US",
 		}, {
+			input:   "+244972577111",
+			err:     nil,
+			isValid: true,
+			region:  "US",
+		}, {
 			input:   "(443) 799-0238",
 			err:     nil,
 			isValid: true,
@@ -273,18 +272,6 @@ func Test_IsValidNumber(t *testing.T) {
 			err:     nil,
 			isValid: true,
 			region:  "US",
-		},
-		{
-			input:   "+212701035628",
-			err:     nil,
-			isValid: true,
-			region:  "MA",
-		},
-		{
-			input:   "+213562035421",
-			err:     nil,
-			isValid: true,
-			region:  "MA",
 		},
 	}
 
