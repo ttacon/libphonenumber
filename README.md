@@ -50,3 +50,8 @@ if geoCodeLength > 0 {
 }
 fmt.Println(areaCode)
 ```
+
+## Contributions?
+Hey, you might have some new implementation, bug fixes and whatnot. Feel free to create an issue if necessary and get on it.
+
+Ensure to run `go mod tidy` on you favorite terminal to download the project dependencies after cloning the project.
